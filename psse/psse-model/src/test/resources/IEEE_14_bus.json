@@ -1331,13 +1331,22 @@
     "ptol" : 999.99,
     "arname" : "IEEE14      "
   } ],
+  "twoTerminalDcTransmissionLines" : [ ],
+  "voltageSourceConverterDcTransmissionLines" : [ ],
+  "transformerImpedanceCorrections" : [ ],
+  "multiTerminalDcTransmissionLines" : [ ],
+  "lineGrouping" : [ ],
   "zones" : [ {
     "i" : 1,
     "zoname" : "IEEE 14 "
   } ],
+  "interareaTransfer" : [ ],
   "owners" : [ {
     "i" : 1,
     "owname" : "1"
   } ],
-  "switchedShunts" : [ ]
+  "facts" : [ ],
+  "switchedShunts" : [ ],
+  "gneDevice" : [ ],
+  "inductionMachines" : [ ]
 }
