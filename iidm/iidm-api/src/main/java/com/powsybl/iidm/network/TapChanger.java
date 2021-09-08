@@ -38,6 +38,10 @@ public interface TapChanger<C extends TapChanger<C, S>, S extends TapChangerStep
      */
     int getTapPosition();
 
+    default Integer getTapPositionAsInteger() {
+        return getTapPosition();
+    }
+
     /**
      * Set the current tap position.
      * <p>
