@@ -54,6 +54,7 @@ public abstract class AbstractNodeBreakerInternalConnectionsTest {
         assertEquals(Arrays.asList(6, 4), nodesInternallyConnectedTo3);
 
         InternalConnections foundStoppingAtTerminals = findInternalConnectionsTraverseStoppingAtTerminals(vl);
+        System.out.println(foundStoppingAtTerminals);
         // If we stop traversal at terminals
         // some internal connections are expected to be missing
         InternalConnections expectedMissing = new InternalConnections();
