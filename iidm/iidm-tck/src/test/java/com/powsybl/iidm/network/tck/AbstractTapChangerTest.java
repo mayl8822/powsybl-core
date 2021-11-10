@@ -91,7 +91,7 @@ public abstract class AbstractTapChangerTest {
 
         // setter getter
         phaseTapChanger.setTapPosition(0);
-        assertEquals(0, phaseTapChanger.getTapPosition());
+        assertEquals(0, phaseTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertSame(phaseTapChanger.getCurrentStep(), phaseTapChanger.getStep(0));
         phaseTapChanger.setRegulationValue(5.0);
         assertEquals(5.0, phaseTapChanger.getRegulationValue(), 0.0);
@@ -253,16 +253,16 @@ public abstract class AbstractTapChangerTest {
         variantManager.cloneVariant("s4", "s2b");
         variantManager.setWorkingVariant("s2b");
         // check values cloned by allocate
-        assertEquals(0, phaseTapChanger.getTapPosition());
+        assertEquals(0, phaseTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(phaseTapChanger.isRegulating());
         assertEquals(9.9, phaseTapChanger.getRegulationValue(), 0.0);
-        assertEquals(0, ratioTapChanger.getTapPosition());
+        assertEquals(0, ratioTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(ratioTapChanger.isRegulating());
         assertEquals(3.5, ratioTapChanger.getTargetV(), 0.0);
-        assertEquals(2, ratioTapChangerInLeg2.getTapPosition());
+        assertEquals(2, ratioTapChangerInLeg2.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(ratioTapChangerInLeg2.isRegulating());
         assertEquals(31.5, ratioTapChangerInLeg2.getTargetV(), 0.0);
-        assertEquals(4, ratioTapChangerInLeg3.getTapPosition());
+        assertEquals(4, ratioTapChangerInLeg3.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(ratioTapChangerInLeg3.isRegulating());
         assertEquals(13.5, ratioTapChangerInLeg3.getTargetV(), 0.0);
 
@@ -281,23 +281,23 @@ public abstract class AbstractTapChangerTest {
 
     private void assertKnownState(PhaseTapChanger phaseTapChanger, RatioTapChanger ratioTapChanger,
             RatioTapChanger ratioTapChangerInLeg2, RatioTapChanger ratioTapChangerInLeg3) {
-        assertEquals(1, phaseTapChanger.getTapPosition());
+        assertEquals(1, phaseTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(phaseTapChanger.isRegulating());
         assertEquals(1.0, phaseTapChanger.getRegulationValue(), 0.0);
-        assertEquals(1, ratioTapChanger.getTapPosition());
+        assertEquals(1, ratioTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertTrue(ratioTapChanger.isRegulating());
         assertEquals(10.0, ratioTapChanger.getTargetV(), 0.0);
-        assertEquals(1, ratioTapChangerInLeg2.getTapPosition());
+        assertEquals(1, ratioTapChangerInLeg2.getTapPosition().orElseThrow(AssertionError::new));
         assertTrue(ratioTapChangerInLeg2.isRegulating());
         assertEquals(10.0, ratioTapChangerInLeg2.getTargetV(), 0.0);
-        assertEquals(3, ratioTapChangerInLeg3.getTapPosition());
+        assertEquals(3, ratioTapChangerInLeg3.getTapPosition().orElseThrow(AssertionError::new));
         assertFalse(ratioTapChangerInLeg3.isRegulating());
         assertEquals(11.0, ratioTapChangerInLeg3.getTargetV(), 0.0);
     }
 
     private void getTapPositionThrowsException(TapChanger tapChanger) {
         try {
-            tapChanger.getTapPosition();
+            tapChanger.getTapPosition().orElseThrow(AssertionError::new);
             fail();
         } catch (Exception ignored) {
             // ignore
@@ -382,7 +382,7 @@ public abstract class AbstractTapChangerTest {
                                                 .endStep()
                                             .add();
         assertEquals(0, ratioTapChanger.getLowTapPosition());
-        assertEquals(1, ratioTapChanger.getTapPosition());
+        assertEquals(1, ratioTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         assertEquals(3, ratioTapChanger.getAllSteps().size());
         assertFalse(ratioTapChanger.hasLoadTapChangingCapabilities());
         assertTrue(ratioTapChanger.isRegulating());
@@ -393,7 +393,7 @@ public abstract class AbstractTapChangerTest {
 
         // setter getter
         ratioTapChanger.setTapPosition(2);
-        assertEquals(2, ratioTapChanger.getTapPosition());
+        assertEquals(2, ratioTapChanger.getTapPosition().orElseThrow(AssertionError::new));
         ratioTapChanger.setTargetV(110.0);
         assertEquals(110.0, ratioTapChanger.getTargetV(), 0.0);
         ratioTapChanger.setRegulating(false);
