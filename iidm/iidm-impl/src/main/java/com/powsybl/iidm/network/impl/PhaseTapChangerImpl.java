@@ -74,8 +74,8 @@ class PhaseTapChangerImpl extends AbstractTapChanger<PhaseTapChangerParent, Phas
                 isRegulating(), getRegulationTerminal(), network, network.getMinValidationLevel().compareTo(ValidationLevel.LOADFLOW) >= 0);
         RegulationMode oldValue = this.regulationMode;
         this.regulationMode = regulationMode;
-        notifyUpdate(() -> getTapChangerAttribute() + ".regulationMode", oldValue, regulationMode);
         network.invalidate();
+        notifyUpdate(() -> getTapChangerAttribute() + ".regulationMode", oldValue, regulationMode);
         return this;
     }
 
@@ -91,8 +91,8 @@ class PhaseTapChangerImpl extends AbstractTapChanger<PhaseTapChangerParent, Phas
         int variantIndex = networkRef.get().getVariantIndex();
         double oldValue = this.regulationValue.set(variantIndex, regulationValue);
         String variantId = networkRef.get().getVariantManager().getVariantId(variantIndex);
-        notifyUpdate(() -> getTapChangerAttribute() + ".regulationValue", variantId, oldValue, regulationValue);
         network.invalidate();
+        notifyUpdate(() -> getTapChangerAttribute() + ".regulationValue", variantId, oldValue, regulationValue);
         return this;
     }
 
