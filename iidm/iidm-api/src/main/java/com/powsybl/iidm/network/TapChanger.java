@@ -8,6 +8,7 @@ package com.powsybl.iidm.network;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -84,7 +85,7 @@ public interface TapChanger<C extends TapChanger<C, S>, S extends TapChangerStep
      * Depends on the working variant.
      * @see VariantManager
      */
-    boolean isRegulating();
+    Optional<Boolean> isRegulating();
 
     /**
      * Set the regulating status.

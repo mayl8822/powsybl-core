@@ -6,15 +6,11 @@
  */
 package com.powsybl.iidm.network.impl;
 
-import com.powsybl.commons.util.trove.TBooleanArrayList;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.impl.util.Ref;
 import gnu.trove.list.array.TDoubleArrayList;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.OptionalInt;
+import java.util.*;
 
 /**
  *
@@ -38,13 +34,13 @@ abstract class AbstractTapChanger<H extends TapChangerParent, C extends Abstract
 
     protected final List<Integer> tapPosition;
 
-    protected final TBooleanArrayList regulating;
+    protected final List<Boolean> regulating;
 
     protected final TDoubleArrayList targetDeadband;
 
     protected AbstractTapChanger(Ref<? extends VariantManagerHolder> network, H parent,
                                  int lowTapPosition, List<S> steps, TerminalExt regulationTerminal,
-                                 Integer tapPosition, boolean regulating, double targetDeadband, String type) {
+                                 Integer tapPosition, Boolean regulating, double targetDeadband, String type) {
         this.network = network;
         this.parent = parent;
         this.lowTapPosition = lowTapPosition;
@@ -53,7 +49,7 @@ abstract class AbstractTapChanger<H extends TapChangerParent, C extends Abstract
         this.regulationTerminal = regulationTerminal;
         int variantArraySize = network.get().getVariantManager().getVariantArraySize();
         this.tapPosition = new ArrayList<>(variantArraySize);
-        this.regulating = new TBooleanArrayList(variantArraySize);
+        this.regulating = new ArrayList<>(variantArraySize);
         this.targetDeadband = new TDoubleArrayList(variantArraySize);
         for (int i = 0; i < variantArraySize; i++) {
             this.tapPosition.add(tapPosition);
@@ -138,8 +134,8 @@ abstract class AbstractTapChanger<H extends TapChangerParent, C extends Abstract
         return getStep(position);
     }
 
-    public boolean isRegulating() {
-        return regulating.get(network.get().getVariantIndex());
+    public Optional<Boolean> isRegulating() {
+        return Optional.ofNullable(regulating.get(network.get().getVariantIndex()));
     }
 
     public C setRegulating(boolean regulating) {
@@ -185,7 +181,7 @@ abstract class AbstractTapChanger<H extends TapChangerParent, C extends Abstract
 
     @Override
     public void extendVariantArraySize(int initVariantArraySize, int number, int sourceIndex) {
-        regulating.ensureCapacity(regulating.size() + number);
+        ((ArrayList<Boolean>) regulating).ensureCapacity(regulating.size() + number);
         ((ArrayList<Integer>) tapPosition).ensureCapacity(tapPosition.size() + number);
         for (int i = 0; i < number; i++) {
             regulating.add(regulating.get(sourceIndex));
@@ -196,10 +192,12 @@ abstract class AbstractTapChanger<H extends TapChangerParent, C extends Abstract
 
     @Override
     public void reduceVariantArraySize(int number) {
-        regulating.remove(regulating.size() - number, number);
-        List<Integer> tmp = new ArrayList<>(tapPosition.subList(0, number));
+        List<Integer> tmpInt = new ArrayList<>(tapPosition.subList(0, number));
         tapPosition.clear();
-        tapPosition.addAll(tmp);
+        tapPosition.addAll(tmpInt);
+        List<Boolean> tmpBool = new ArrayList<>(regulating.subList(0, number));
+        regulating.clear();
+        regulating.addAll(tmpBool);
         targetDeadband.remove(targetDeadband.size() - number, number);
     }
 
