@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
@@ -22,8 +23,8 @@ import static java.util.Objects.requireNonNull;
  * Used to ease the creation of a {@link ComputationException}.
  * The builder provides methods to register logs and files from different sources.
  *
- * @author Yichen TANG <yichen.tang at rte-france.com>
- * @author Sylvain LECLERC <sylvain.leclerc at rte-france.com>
+ * @author Yichen TANG {@literal <yichen.tang at rte-france.com>}
+ * @author Sylvain LECLERC {@literal <sylvain.leclerc at rte-france.com>}
  */
 public class ComputationExceptionBuilder {
 

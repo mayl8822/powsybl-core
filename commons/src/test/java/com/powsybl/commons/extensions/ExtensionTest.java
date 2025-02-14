@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.extensions;
 
@@ -12,31 +13,31 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.powsybl.commons.AbstractConverterTest;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.json.JsonUtil;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.function.ThrowingRunnable;
+import com.powsybl.commons.test.AbstractSerDeTest;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
-
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class ExtensionTest extends AbstractConverterTest {
+class ExtensionTest extends AbstractSerDeTest {
 
     private static final Supplier<ExtensionProviders<ExtensionJsonSerializer>> SUPPLIER =
             Suppliers.memoize(() -> ExtensionProviders.createProvider(ExtensionJsonSerializer.class, "test"));
 
     @Test
-    public void testExtendable() {
+    void testExtendable() {
         Foo foo = new Foo();
         FooExt fooExt = new FooExt(true);
         BarExt barExt = new BarExt(false);
@@ -66,7 +67,7 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testExtensionSupplier() {
+    void testExtensionSupplier() {
         assertNotNull(SUPPLIER.get().findProvider("FooExt"));
         assertNotNull(SUPPLIER.get().findProviderOrThrowException("FooExt"));
         assertNotNull(SUPPLIER.get().findProvider("BarExt"));
@@ -84,28 +85,28 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testReadJson() throws IOException {
+    void testReadJson() throws IOException {
         Foo foo = FooDeserializer.read(getClass().getResourceAsStream("/extensions.json"));
         assertEquals(1, foo.getExtensions().size());
         assertNotNull(foo.getExtension(FooExt.class));
         assertNull(foo.getExtension(BarExt.class));
     }
 
-    private void assertBadExtensionJsonThrows(ThrowingRunnable runnable) {
+    private void assertBadExtensionJsonThrows(Executable runnable) {
         PowsyblException exception = assertThrows(PowsyblException.class, runnable);
-        assertTrue("Exception should be about bad field exceptions, but got: " + exception.getMessage(),
-                exception.getMessage().contains("\"extensions\""));
+        assertTrue(exception.getMessage().contains("\"extensions\""),
+                "Exception should be about bad field exceptions, but got: " + exception.getMessage());
     }
 
     @Test
-    public void testBadReadJson() throws IOException {
+    void testBadReadJson() throws IOException {
         assertBadExtensionJsonThrows(() -> {
             Foo foo = FooDeserializer.read(getClass().getResourceAsStream("/BadExtensions.json"));
         });
     }
 
     @Test
-    public void testWriteJson() throws IOException {
+    void testWriteJson() throws IOException {
         Files.createFile(tmpDir.resolve("extensions.json"));
         ExtensionProviders<? extends ExtensionJsonSerializer> supplier = ExtensionProviders.createProvider(ExtensionJsonSerializer.class, "test", Collections.singleton("FooExt"));
         Foo foo = new Foo();
@@ -126,7 +127,7 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testUpdateAndDeserialize() throws IOException {
+    void testUpdateAndDeserialize() throws IOException {
         Foo foo = new Foo();
         FooExt fooExt = new FooExt(false, "Hello");
         foo.addExtension(FooExt.class, fooExt);
@@ -136,7 +137,7 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testBadUpdateAndDeserialize() throws IOException {
+    void testBadUpdateAndDeserialize() throws IOException {
         assertBadExtensionJsonThrows(() -> {
             Foo foo = new Foo();
             FooDeserializer.update(getClass().getResourceAsStream("/BadExtensions.json"), foo);
@@ -144,7 +145,7 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testUpdateWith2Extensions() throws IOException {
+    void testUpdateWith2Extensions() throws IOException {
         Foo foo = new Foo();
         FooExt fooExt = new FooExt(false, "Hello");
         BarExt barExt = new BarExt(true);
@@ -157,14 +158,14 @@ public class ExtensionTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testProviderConflict() {
-        ExtensionXmlSerializer<?, ?> mock1 = Mockito.mock(ExtensionXmlSerializer.class);
+    void testProviderConflict() {
+        ExtensionSerDe<?, ?> mock1 = Mockito.mock(ExtensionSerDe.class);
         Mockito.when(mock1.getExtensionName()).thenReturn("mock");
-        ExtensionXmlSerializer<?, ?> mock2 = Mockito.mock(ExtensionXmlSerializer.class);
+        ExtensionSerDe<?, ?> mock2 = Mockito.mock(ExtensionSerDe.class);
         Mockito.when(mock2.getExtensionName()).thenReturn("mock");
 
-        ExtensionXmlSerializer<?, ?>[] mocks = {mock1, mock2};
+        ExtensionSerDe<?, ?>[] mocks = {mock1, mock2};
 
-        Assert.assertThrows(IllegalStateException.class, () -> Arrays.stream(mocks).collect(Collectors.toMap(ExtensionXmlSerializer::getExtensionName, e -> e)));
+        assertThrows(IllegalStateException.class, () -> Arrays.stream(mocks).collect(Collectors.toMap(ExtensionSerDe::getExtensionName, e -> e)));
     }
 }

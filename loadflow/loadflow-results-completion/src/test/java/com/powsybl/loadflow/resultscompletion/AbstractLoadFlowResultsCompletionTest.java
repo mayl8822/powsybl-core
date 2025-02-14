@@ -3,18 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.resultscompletion;
 
-import com.powsybl.iidm.network.Branch.Side;
+import com.powsybl.iidm.network.TwoSides;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.Terminal.BusView;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.stream.Stream;
 
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -31,49 +32,49 @@ import com.powsybl.iidm.network.TwoWindingsTransformer;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public abstract class AbstractLoadFlowResultsCompletionTest {
+abstract class AbstractLoadFlowResultsCompletionTest {
 
-    protected String                   lineId  = "line";
-    protected double                   lineP1  = -42.051187;
-    protected double                   lineQ1  = -19.516002;
-    protected double                   lineP2  = 42.0684589;
-    protected double                   lineQ2  = 18.8650876;
-    protected Terminal                 lineTerminal1;
-    protected Terminal                 lineTerminal2;
-    protected Line                     line;
+    protected String lineId = "line";
+    protected double lineP1 = -42.051187;
+    protected double lineQ1 = -19.516002;
+    protected double lineP2 = 42.0684589;
+    protected double lineQ2 = 18.8650876;
+    protected Terminal lineTerminal1;
+    protected Terminal lineTerminal2;
+    protected Line line;
 
-    protected String                   twtId   = "twt";
-    protected double                   twtP1   = 436.548434;
-    protected double                   twtQ1   = 43.472170;
-    protected double                   twtP2   = -436.4087165;
-    protected double                   twtQ2   = 11.837290;
-    protected Terminal                 twtTerminal1;
-    protected Terminal                 twtTerminal2;
-    protected TwoWindingsTransformer   transformer;
+    protected String twtId = "twt";
+    protected double twtP1 = 436.548434;
+    protected double twtQ1 = 43.472170;
+    protected double twtP2 = -436.4087165;
+    protected double twtQ2 = 11.837290;
+    protected Terminal twtTerminal1;
+    protected Terminal twtTerminal2;
+    protected TwoWindingsTransformer transformer;
 
-    protected String                   shuntId = "shunt";
-    protected double                   shuntQ  = -21.2566;
-    protected Terminal                 shuntTerminal;
-    protected ShuntCompensator         shunt;
+    protected String shuntId = "shunt";
+    protected double shuntQ = -21.2566;
+    protected Terminal shuntTerminal;
+    protected ShuntCompensator shunt;
 
-    protected String                   twt3wId = "twt3w";
-    protected double                   leg1P   = 99.218431;
-    protected double                   leg1Q   = 2.747147;
-    protected double                   leg2P   = -216.19819;
-    protected double                   leg2Q   = -85.368180;
-    protected double                   leg3P   = 118;
-    protected double                   leg3Q   = 92.612077;
-    protected Terminal                 leg1Terminal;
-    protected Terminal                 leg2Terminal;
-    protected Terminal                 leg3Terminal;
+    protected String twt3wId = "twt3w";
+    protected double leg1P = 99.218431;
+    protected double leg1Q = 2.747147;
+    protected double leg2P = -216.19819;
+    protected double leg2Q = -85.368180;
+    protected double leg3P = 118;
+    protected double leg3Q = 92.612077;
+    protected Terminal leg1Terminal;
+    protected Terminal leg2Terminal;
+    protected Terminal leg3Terminal;
     protected ThreeWindingsTransformer twt3w;
 
-    protected Network                  network;
+    protected Network network;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         Bus lineBus1 = Mockito.mock(Bus.class);
         Mockito.when(lineBus1.getV()).thenReturn(225.105);
         Mockito.when(lineBus1.getAngle()).thenReturn(Math.toDegrees(0.0765428));
@@ -106,8 +107,8 @@ public abstract class AbstractLoadFlowResultsCompletionTest {
         Mockito.when(line.getId()).thenReturn(lineId);
         Mockito.when(line.getTerminal1()).thenReturn(lineTerminal1);
         Mockito.when(line.getTerminal2()).thenReturn(lineTerminal2);
-        Mockito.when(line.getTerminal(Side.ONE)).thenReturn(lineTerminal1);
-        Mockito.when(line.getTerminal(Side.TWO)).thenReturn(lineTerminal2);
+        Mockito.when(line.getTerminal(TwoSides.ONE)).thenReturn(lineTerminal1);
+        Mockito.when(line.getTerminal(TwoSides.TWO)).thenReturn(lineTerminal2);
         Mockito.when(line.getR()).thenReturn(0.409999);
         Mockito.when(line.getX()).thenReturn(2.47000);
         Mockito.when(line.getG1()).thenReturn(0.0);
@@ -162,8 +163,8 @@ public abstract class AbstractLoadFlowResultsCompletionTest {
         Mockito.when(transformer.getId()).thenReturn(twtId);
         Mockito.when(transformer.getTerminal1()).thenReturn(twtTerminal1);
         Mockito.when(transformer.getTerminal2()).thenReturn(twtTerminal2);
-        Mockito.when(transformer.getTerminal(Side.ONE)).thenReturn(twtTerminal1);
-        Mockito.when(transformer.getTerminal(Side.TWO)).thenReturn(twtTerminal2);
+        Mockito.when(transformer.getTerminal(TwoSides.ONE)).thenReturn(twtTerminal1);
+        Mockito.when(transformer.getTerminal(TwoSides.TWO)).thenReturn(twtTerminal2);
         Mockito.when(transformer.getR()).thenReturn(0.121);
         Mockito.when(transformer.getX()).thenReturn(47.9);
         Mockito.when(transformer.getG()).thenReturn(0.0);

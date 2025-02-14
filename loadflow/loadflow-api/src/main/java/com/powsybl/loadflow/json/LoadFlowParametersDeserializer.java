@@ -3,12 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.json;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.powsybl.commons.extensions.Extension;
@@ -26,11 +26,12 @@ import java.util.Set;
 import static com.powsybl.loadflow.json.JsonLoadFlowParameters.*;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
 public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowParameters> {
 
     private static final String CONTEXT_NAME = "LoadFlowParameters";
+    private static final String TAGS = "Tag: ";
 
     LoadFlowParametersDeserializer() {
         super(LoadFlowParameters.class);
@@ -46,7 +47,7 @@ public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowPara
         String version = null;
         List<Extension<LoadFlowParameters>> extensions = Collections.emptyList();
         while (parser.nextToken() != JsonToken.END_OBJECT) {
-            switch (parser.getCurrentName()) {
+            switch (parser.currentName()) {
                 case "version":
                     parser.nextToken();
                     version = parser.getValueAsString();
@@ -54,7 +55,7 @@ public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowPara
 
                 case "voltageInitMode":
                     parser.nextToken();
-                    parameters.setVoltageInitMode(parser.readValueAs(VoltageInitMode.class));
+                    parameters.setVoltageInitMode(JsonUtil.readValue(deserializationContext, parser, VoltageInitMode.class));
                     break;
 
                 case "transformerVoltageControlOn":
@@ -62,9 +63,16 @@ public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowPara
                     parameters.setTransformerVoltageControlOn(parser.readValueAs(Boolean.class));
                     break;
 
-                case "noGeneratorReactiveLimits":
+                case "useReactiveLimits":
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: useReactiveLimits", version, "1.8");
                     parser.nextToken();
-                    parameters.setNoGeneratorReactiveLimits(parser.readValueAs(Boolean.class));
+                    parameters.setUseReactiveLimits(parser.readValueAs(Boolean.class));
+                    break;
+
+                case "noGeneratorReactiveLimits":
+                    JsonUtil.assertLessThanOrEqualToReferenceVersion(CONTEXT_NAME, "Tag: noGeneratorReactiveLimits", version, "1.7");
+                    parser.nextToken();
+                    parameters.setUseReactiveLimits(!parser.readValueAs(Boolean.class));
                     break;
 
                 case "phaseShifterRegulationOn":
@@ -129,34 +137,40 @@ public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowPara
                     break;
 
                 case "balanceType":
-                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: " + parser.getCurrentName(), version, "1.4");
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, TAGS + parser.currentName(), version, "1.4");
                     parser.nextToken();
-                    parameters.setBalanceType(parser.readValueAs(BalanceType.class));
+                    parameters.setBalanceType(JsonUtil.readValue(deserializationContext, parser, BalanceType.class));
                     break;
 
                 case "dcUseTransformerRatio":
-                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: " + parser.getCurrentName(), version, "1.5");
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, TAGS + parser.currentName(), version, "1.5");
                     parser.nextToken();
                     parameters.setDcUseTransformerRatio(parser.readValueAs(Boolean.class));
                     break;
 
                 case "countriesToBalance":
-                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: " + parser.getCurrentName(), version, "1.5");
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, TAGS + parser.currentName(), version, "1.5");
                     parser.nextToken();
-                    Set<Country> countries = parser.readValueAs(new TypeReference<Set<Country>>() { });
+                    Set<Country> countries = JsonUtil.readSet(deserializationContext, parser, Country.class);
                     parameters.setCountriesToBalance(countries);
                     break;
 
                 case "connectedComponentMode":
-                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: " + parser.getCurrentName(), version, "1.5");
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, TAGS + parser.currentName(), version, "1.5");
                     parser.nextToken();
-                    parameters.setConnectedComponentMode(parser.readValueAs(LoadFlowParameters.ConnectedComponentMode.class));
+                    parameters.setConnectedComponentMode(JsonUtil.readValue(deserializationContext, parser, LoadFlowParameters.ConnectedComponentMode.class));
                     break;
 
                 case "hvdcAcEmulation":
-                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: hvdcAcEmulation" + parser.getCurrentName(), version, "1.7");
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: hvdcAcEmulation" + parser.currentName(), version, "1.7");
                     parser.nextToken();
                     parameters.setHvdcAcEmulation(parser.readValueAs(Boolean.class));
+                    break;
+
+                case "dcPowerFactor":
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: dcPowerFactor" + parser.currentName(), version, "1.9");
+                    parser.nextToken();
+                    parameters.setDcPowerFactor(parser.readValueAs(Double.class));
                     break;
 
                 case "extensions":
@@ -165,7 +179,7 @@ public class LoadFlowParametersDeserializer extends StdDeserializer<LoadFlowPara
                     break;
 
                 default:
-                    throw new AssertionError("Unexpected field: " + parser.getCurrentName());
+                    throw new IllegalStateException("Unexpected field: " + parser.currentName());
             }
         }
         extensions.forEach(extension -> parameters.addExtension((Class) extension.getClass(), extension));

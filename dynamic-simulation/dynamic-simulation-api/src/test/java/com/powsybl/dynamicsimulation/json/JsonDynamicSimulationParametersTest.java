@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.dynamicsimulation.json;
 
@@ -11,23 +12,23 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.auto.service.AutoService;
-import com.powsybl.commons.AbstractConverterTest;
 import com.powsybl.commons.extensions.AbstractExtension;
+import com.powsybl.commons.test.AbstractSerDeTest;
+import com.powsybl.commons.test.ComparisonUtils;
 import com.powsybl.dynamicsimulation.DynamicSimulationParameters;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
-public class JsonDynamicSimulationParametersTest extends AbstractConverterTest {
+class JsonDynamicSimulationParametersTest extends AbstractSerDeTest {
 
     @Test
-    public void roundTrip() throws IOException {
+    void roundTrip() throws IOException {
         DynamicSimulationParameters parameters = new DynamicSimulationParameters()
                 .setStartTime(0)
                 .setStopTime(1);
@@ -35,14 +36,14 @@ public class JsonDynamicSimulationParametersTest extends AbstractConverterTest {
     }
 
     @Test
-    public void writeExtension() throws IOException {
+    void writeExtension() throws IOException {
         DynamicSimulationParameters parameters = new DynamicSimulationParameters();
         parameters.addExtension(DummyExtension.class, new DummyExtension());
-        writeTest(parameters, JsonDynamicSimulationParameters::write, AbstractConverterTest::compareTxt, "/DynamicSimulationParametersWithExtension.json");
+        writeTest(parameters, JsonDynamicSimulationParameters::write, ComparisonUtils::assertTxtEquals, "/DynamicSimulationParametersWithExtension.json");
     }
 
     @Test
-    public void readExtension() {
+    void readExtension() {
         DynamicSimulationParameters parameters = JsonDynamicSimulationParameters.read(getClass().getResourceAsStream("/DynamicSimulationParametersWithExtension.json"));
         assertEquals(1, parameters.getExtensions().size());
         assertNotNull(parameters.getExtension(DummyExtension.class));
@@ -50,10 +51,11 @@ public class JsonDynamicSimulationParametersTest extends AbstractConverterTest {
     }
 
     @Test
-    public void readError() {
-        expected.expect(AssertionError.class);
-        expected.expectMessage("Unexpected field: unknownParameter");
-        JsonDynamicSimulationParameters.read(getClass().getResourceAsStream("/DynamicSimulationParametersError.json"));
+    void readError() throws IOException {
+        try (var is = getClass().getResourceAsStream("/DynamicSimulationParametersError.json")) {
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> JsonDynamicSimulationParameters.read(is));
+            assertEquals("Unexpected field: unknownParameter", e.getMessage());
+        }
     }
 
     static class DummyExtension extends AbstractExtension<DynamicSimulationParameters> {

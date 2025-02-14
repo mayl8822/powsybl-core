@@ -3,12 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.util;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,29 +17,29 @@ import com.powsybl.iidm.network.DanglingLine;
 
 /**
  *
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
-public class DanglingLineDataTest {
+class DanglingLineDataTest {
 
     @Test
-    public void test() {
+    void test() {
         DanglingLine danglingLine = new DanglingLineTestData().getDanglingLine();
         DanglingLineData dlData = new DanglingLineData(danglingLine);
 
-        boolean ok = dlCompareBoundaryBusVoltage(dlData, 406.63382758266334, -8.573434828294932);
+        boolean ok = dlCompareBoundaryBusVoltage(dlData, 406.63378691, -8.57343339);
         assertTrue(ok);
     }
 
     @Test
-    public void testP0Q0zero() {
+    void testP0Q0zero() {
         DanglingLineTestData dlTestData = new DanglingLineTestData();
         dlTestData.setP0Zero();
         dlTestData.setQ0Zero();
         DanglingLine danglingLine = dlTestData.getDanglingLine();
         DanglingLineData dlData = new DanglingLineData(danglingLine);
 
-        boolean ok = dlCompareBoundaryBusVoltage(dlData, 406.6200406620039, -8.60000143239463);
+        boolean ok = dlCompareBoundaryBusVoltage(dlData, 406.62, -8.60);
         assertTrue(ok);
     }
 

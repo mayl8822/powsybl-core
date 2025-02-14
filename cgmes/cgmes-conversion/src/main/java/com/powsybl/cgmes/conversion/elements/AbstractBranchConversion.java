@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
@@ -11,8 +12,10 @@ import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.iidm.network.*;
 import com.powsybl.triplestore.api.PropertyBag;
 
+import java.util.Optional;
+
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public abstract class AbstractBranchConversion extends AbstractConductingEquipmentConversion {
 
@@ -50,16 +53,16 @@ public abstract class AbstractBranchConversion extends AbstractConductingEquipme
             if (context.nodeBreaker()) {
                 VoltageLevel.NodeBreakerView.SwitchAdder adder;
                 adder = voltageLevel().getNodeBreakerView().newSwitch()
-                        .setKind(SwitchKind.BREAKER)
-                        .setRetained(true)
-                        .setFictitious(true);
+                                .setKind(SwitchKind.BREAKER)
+                                .setRetained(true)
+                                .setFictitious(true);
                 identify(adder);
                 connect(adder, open);
                 sw = adder.add();
             } else {
                 VoltageLevel.BusBreakerView.SwitchAdder adder;
                 adder = voltageLevel().getBusBreakerView().newSwitch()
-                        .setFictitious(true);
+                                .setFictitious(true);
                 identify(adder);
                 connect(adder, open);
                 sw = adder.add();
@@ -83,6 +86,18 @@ public abstract class AbstractBranchConversion extends AbstractConductingEquipme
     }
 
     private boolean isZeroImpedanceInsideVoltageLevel(double r, double x) {
-        return r == 0.0 && x == 0.0 && voltageLevel(1) == voltageLevel(2);
+        Optional<VoltageLevel> vl1 = voltageLevel(1);
+        Optional<VoltageLevel> vl2 = voltageLevel(2);
+        if (vl1.isPresent()) {
+            if (vl2.isPresent() && vl1.get() == vl2.get()) {
+                return r == 0.0 && x == 0.0;
+            }
+            return false;
+        } else {
+            if (vl2.isPresent()) {
+                return false;
+            }
+            return r == 0.0 && x == 0.0;
+        }
     }
 }

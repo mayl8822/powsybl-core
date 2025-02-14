@@ -3,14 +3,15 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.comparator;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.powsybl.iidm.network.*;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,7 @@ import java.util.function.BinaryOperator;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class NetworkStateComparator {
 
@@ -41,7 +42,7 @@ public class NetworkStateComparator {
 
     }
 
-    private static final ColumnMapper<Bus> BUS_V = new ColumnMapper<Bus>() {
+    private static final ColumnMapper<Bus> BUS_V = new ColumnMapper<>() {
 
         @Override
         public String getTitle() {
@@ -56,7 +57,7 @@ public class NetworkStateComparator {
         }
     };
 
-    private static final ColumnMapper<Bus> BUS_ANGLE = new ColumnMapper<Bus>() {
+    private static final ColumnMapper<Bus> BUS_ANGLE = new ColumnMapper<>() {
 
         @Override
         public String getTitle() {
@@ -90,7 +91,7 @@ public class NetworkStateComparator {
 
         @Override
         public String getTitle() {
-            return "q1 (MW)";
+            return "q1 (MVAr)";
         }
 
         @Override
@@ -120,7 +121,7 @@ public class NetworkStateComparator {
 
         @Override
         public String getTitle() {
-            return "q2 (MW)";
+            return "q2 (MVAr)";
         }
 
         @Override
@@ -140,9 +141,9 @@ public class NetworkStateComparator {
 
         @Override
         public void setValue(Branch branch, Cell cell) {
-            if (branch instanceof TwoWindingsTransformer
-                    && (((TwoWindingsTransformer) branch).hasRatioTapChanger() ||
-                        ((TwoWindingsTransformer) branch).hasPhaseTapChanger())) {
+            if (branch instanceof TwoWindingsTransformer twt
+                    && (twt.hasRatioTapChanger() ||
+                        twt.hasPhaseTapChanger())) {
                 Bus b1 = branch.getTerminal1().getBusView().getBus();
                 Bus b2 = branch.getTerminal2().getBusView().getBus();
                 if (b1 != null && !Double.isNaN(b1.getV()) && b2 != null && !Double.isNaN(b2.getV()) && b2.getV() != 0) {
@@ -161,14 +162,87 @@ public class NetworkStateComparator {
 
         @Override
         public void setValue(Branch branch, Cell cell) {
-            if (branch instanceof TwoWindingsTransformer
-                    && (((TwoWindingsTransformer) branch).hasRatioTapChanger() ||
-                    ((TwoWindingsTransformer) branch).hasPhaseTapChanger())) {
+            if (branch instanceof TwoWindingsTransformer twt
+                    && (twt.hasRatioTapChanger() ||
+                    twt.hasPhaseTapChanger())) {
                 Bus b1 = branch.getTerminal1().getBusView().getBus();
                 Bus b2 = branch.getTerminal2().getBusView().getBus();
                 if (b1 != null && !Double.isNaN(b1.getAngle()) && b2 != null && !Double.isNaN(b2.getAngle())) {
                     cell.setCellValue(b1.getAngle() - b2.getAngle());
                 }
+            }
+        }
+    }
+
+    private abstract static class AbstractT3wtPColumnMapper<T extends ThreeWindingsTransformer> implements ColumnMapper<T> {
+        protected final ThreeSides side;
+        private final String title;
+
+        public AbstractT3wtPColumnMapper(ThreeSides side, String title) {
+            this.side = side;
+            this.title = title;
+        }
+
+        @Override
+        public String getTitle() {
+            return title;
+        }
+    }
+
+    private static class T3wtPColumnMapper extends AbstractT3wtPColumnMapper<ThreeWindingsTransformer> {
+
+        public T3wtPColumnMapper(ThreeSides side, String title) {
+            super(side, title);
+        }
+
+        @Override
+        public void setValue(ThreeWindingsTransformer t3wt, Cell cell) {
+            if (!Double.isNaN(t3wt.getTerminal(side).getP())) {
+                cell.setCellValue(t3wt.getTerminal(side).getP());
+            }
+        }
+    }
+
+    private static class T3wtQColumnMapper extends AbstractT3wtPColumnMapper<ThreeWindingsTransformer> {
+
+        public T3wtQColumnMapper(ThreeSides side, String title) {
+            super(side, title);
+        }
+
+        @Override
+        public void setValue(ThreeWindingsTransformer t3wt, Cell cell) {
+            if (!Double.isNaN(t3wt.getTerminal(side).getQ())) {
+                cell.setCellValue(t3wt.getTerminal(side).getQ());
+            }
+        }
+    }
+
+    private static class T3wtRatioTapColumnMapper extends AbstractT3wtPColumnMapper<ThreeWindingsTransformer> {
+
+        public T3wtRatioTapColumnMapper(ThreeSides side, String title) {
+            super(side, title);
+        }
+
+        @Override
+        public void setValue(ThreeWindingsTransformer t3wt, Cell cell) {
+            final RatioTapChanger rtc = t3wt.getLegs().get(side.ordinal()).getRatioTapChanger();
+            if (rtc != null) {
+                cell.setCellValue(rtc.getTapPosition());
+            }
+        }
+    }
+
+    private static class T3wtPhaseTapColumnMapper extends AbstractT3wtPColumnMapper<ThreeWindingsTransformer> {
+
+        public T3wtPhaseTapColumnMapper(ThreeSides side, String title) {
+            super(side, title);
+        }
+
+        @Override
+        public void setValue(ThreeWindingsTransformer t3wt, Cell cell) {
+            final PhaseTapChanger ptc = t3wt.getLegs().get(side.ordinal()).getPhaseTapChanger();
+            if (ptc != null) {
+                cell.setCellValue(ptc.getTapPosition());
             }
         }
     }
@@ -193,7 +267,7 @@ public class NetworkStateComparator {
 
     private static final BranchDephaColumnMapper<TwoWindingsTransformer> TWT_DEPHA = new BranchDephaColumnMapper<>();
 
-    private static final ColumnMapper<TwoWindingsTransformer> TWT_RATIO_TAP = new ColumnMapper<TwoWindingsTransformer>() {
+    private static final ColumnMapper<TwoWindingsTransformer> TWT_RATIO_TAP = new ColumnMapper<>() {
 
         @Override
         public String getTitle() {
@@ -209,7 +283,7 @@ public class NetworkStateComparator {
         }
     };
 
-    private static final ColumnMapper<TwoWindingsTransformer> TWT_PHASE_TAP = new ColumnMapper<TwoWindingsTransformer>() {
+    private static final ColumnMapper<TwoWindingsTransformer> TWT_PHASE_TAP = new ColumnMapper<>() {
 
         @Override
         public String getTitle() {
@@ -287,7 +361,7 @@ public class NetworkStateComparator {
 
     private static final InjectionQColumnMapper<Load> LOAD_Q = new InjectionQColumnMapper<>();
 
-    private static final ColumnMapper<ShuntCompensator> SHUNT_SECTIONS = new ColumnMapper<ShuntCompensator>() {
+    private static final ColumnMapper<ShuntCompensator> SHUNT_SECTIONS = new ColumnMapper<>() {
 
         @Override
         public String getTitle() {
@@ -300,7 +374,26 @@ public class NetworkStateComparator {
         }
     };
 
+    private static final InjectionPColumnMapper<ShuntCompensator> SHUNT_P = new InjectionPColumnMapper<>();
+
     private static final InjectionQColumnMapper<ShuntCompensator> SHUNT_Q = new InjectionQColumnMapper<>();
+
+    private static final InjectionVColumnMapper<StaticVarCompensator> SVC_V = new InjectionVColumnMapper<>();
+
+    private static final InjectionQColumnMapper<StaticVarCompensator> SVC_Q = new InjectionQColumnMapper<>();
+
+    private static final T3wtPColumnMapper T3WT_P1 = new T3wtPColumnMapper(ThreeSides.ONE, "p1 (MW)");
+    private static final T3wtPColumnMapper T3WT_P2 = new T3wtPColumnMapper(ThreeSides.TWO, "p2 (MW)");
+    private static final T3wtPColumnMapper T3WT_P3 = new T3wtPColumnMapper(ThreeSides.THREE, "p3 (MW)");
+    private static final T3wtQColumnMapper T3WT_Q1 = new T3wtQColumnMapper(ThreeSides.ONE, "q1 (MVAr)");
+    private static final T3wtQColumnMapper T3WT_Q2 = new T3wtQColumnMapper(ThreeSides.TWO, "q2 (MVAr)");
+    private static final T3wtQColumnMapper T3WT_Q3 = new T3wtQColumnMapper(ThreeSides.THREE, "q3 (MVAr)");
+    private static final T3wtRatioTapColumnMapper T3WT_RATIO1 = new T3wtRatioTapColumnMapper(ThreeSides.ONE, "ratio tap 1");
+    private static final T3wtRatioTapColumnMapper T3WT_RATIO2 = new T3wtRatioTapColumnMapper(ThreeSides.TWO, "ratio tap 2");
+    private static final T3wtRatioTapColumnMapper T3WT_RATIO3 = new T3wtRatioTapColumnMapper(ThreeSides.THREE, "ratio tap 3");
+    private static final T3wtPhaseTapColumnMapper T3WT_PHASE1 = new T3wtPhaseTapColumnMapper(ThreeSides.ONE, "phase tap 1");
+    private static final T3wtPhaseTapColumnMapper T3WT_PHASE2 = new T3wtPhaseTapColumnMapper(ThreeSides.TWO, "phase tap 2");
+    private static final T3wtPhaseTapColumnMapper T3WT_PHASE3 = new T3wtPhaseTapColumnMapper(ThreeSides.THREE, "phase tap 3");
 
     private static final class DiffColumnMapper<T extends Identifiable> implements ColumnMapper<T> {
 
@@ -377,19 +470,23 @@ public class NetworkStateComparator {
         }
     }
 
-    private static final List<ColumnMapper<Bus>> BUS_MAPPERS = ImmutableList.of(BUS_V, BUS_ANGLE);
+    private static final List<ColumnMapper<Bus>> BUS_MAPPERS = List.of(BUS_V, BUS_ANGLE);
 
-    private static final List<ColumnMapper<Line>> LINE_MAPPERS = ImmutableList.of(LINE_P1, LINE_P2, LINE_Q1, LINE_Q2);
+    private static final List<ColumnMapper<Line>> LINE_MAPPERS = List.of(LINE_P1, LINE_P2, LINE_Q1, LINE_Q2);
 
-    private static final List<ColumnMapper<TwoWindingsTransformer>> TRANSFO_MAPPERS = ImmutableList.of(TWT_P1, TWT_P2, TWT_Q1, TWT_Q2, TWT_RATIO_TAP, TWT_PHASE_TAP, TWT_RATIO, TWT_DEPHA);
+    private static final List<ColumnMapper<TwoWindingsTransformer>> TRANSFO_MAPPERS = List.of(TWT_P1, TWT_P2, TWT_Q1, TWT_Q2, TWT_RATIO_TAP, TWT_PHASE_TAP, TWT_RATIO, TWT_DEPHA);
 
-    private static final List<ColumnMapper<Generator>> GENERATOR_MAPPERS = ImmutableList.of(GEN_P, GEN_Q, GEN_V);
+    private static final List<ColumnMapper<ThreeWindingsTransformer>> T3WT_MAPPERS = List.of(T3WT_P1, T3WT_P2, T3WT_P3, T3WT_Q1, T3WT_Q2, T3WT_Q3, T3WT_RATIO1, T3WT_RATIO2, T3WT_RATIO3, T3WT_PHASE1, T3WT_PHASE2, T3WT_PHASE3);
 
-    private static final List<ColumnMapper<HvdcConverterStation>> HVDC_MAPPERS = ImmutableList.of(HVDC_P, HVDC_Q, HVDC_V);
+    private static final List<ColumnMapper<Generator>> GENERATOR_MAPPERS = List.of(GEN_P, GEN_Q, GEN_V);
 
-    private static final List<ColumnMapper<Load>> LOAD_MAPPERS = ImmutableList.of(LOAD_P, LOAD_Q);
+    private static final List<ColumnMapper<HvdcConverterStation>> HVDC_MAPPERS = List.of(HVDC_P, HVDC_Q, HVDC_V);
 
-    private static final List<ColumnMapper<ShuntCompensator>> SHUNT_MAPPERS = ImmutableList.of(SHUNT_SECTIONS, SHUNT_Q);
+    private static final List<ColumnMapper<Load>> LOAD_MAPPERS = List.of(LOAD_P, LOAD_Q);
+
+    private static final List<ColumnMapper<ShuntCompensator>> SHUNT_MAPPERS = List.of(SHUNT_SECTIONS, SHUNT_P, SHUNT_Q);
+
+    private static final List<ColumnMapper<StaticVarCompensator>> SVC_MAPPERS = List.of(SVC_Q, SVC_V);
 
     private final Network network;
 
@@ -475,10 +572,12 @@ public class NetworkStateComparator {
         // auto filter
         sheetContext.getSheet().setAutoFilter(new CellRangeAddress(1, 1, stateColumnOffset, stateColumnOffset + 3 * mappers.size() - 1));
 
-        // create diff stats
-        createRowFooter(sheetContext, diffColumnOffset, mappers, 0, "Max", (fromCell, toCell) -> "MAX(" + fromCell + ":" + toCell + ")");
-        createRowFooter(sheetContext, diffColumnOffset, mappers, 1, "Min", (fromCell, toCell) -> "MIN(" + fromCell + ":" + toCell + ")");
-        createRowFooter(sheetContext, diffColumnOffset, mappers, 2, "Average", (fromCell, toCell) -> "AVERAGE(" + fromCell + ":" + toCell + ")");
+        // create diff stats (only if there is at least one object to compare, otherwise current code creates circular references in worksheet).
+        if (!objs.isEmpty()) {
+            createRowFooter(sheetContext, diffColumnOffset, mappers, 0, "Max", (fromCell, toCell) -> "MAX(" + fromCell + ":" + toCell + ")");
+            createRowFooter(sheetContext, diffColumnOffset, mappers, 1, "Min", (fromCell, toCell) -> "MIN(" + fromCell + ":" + toCell + ")");
+            createRowFooter(sheetContext, diffColumnOffset, mappers, 2, "Average", (fromCell, toCell) -> "AVERAGE(" + fromCell + ":" + toCell + ")");
+        }
     }
 
     private <T extends Identifiable> void createRowFooter(SheetContext<T> sheetContext, int diffColumnOffset,
@@ -488,9 +587,9 @@ public class NetworkStateComparator {
         titleCell.setCellValue(title);
         for (int i = 0; i < mappers.size(); i++) {
             Cell cell = rowFooterMax.createCell(diffColumnOffset + i);
-            char letter = (char) ('A' + diffColumnOffset + i);
-            String fromCell = letter + "3";
-            String toCell = "" + letter + (sheetContext.getObjs().size() + 2);
+            String col = CellReference.convertNumToColString(diffColumnOffset + i);
+            String fromCell = col + "3";
+            String toCell = col + (sheetContext.getObjs().size() + 2);
             cell.setCellFormula(function.apply(fromCell, toCell));
         }
     }
@@ -498,11 +597,13 @@ public class NetworkStateComparator {
     private void createSheets(Workbook wb, CellStyle titleCellStyle) {
         createSheet(Lists.newArrayList(network.getBusView().getBuses()), wb, titleCellStyle, "Buses", BUS_MAPPERS);
         createSheet(Lists.newArrayList(network.getLines()), wb, titleCellStyle, "Lines", LINE_MAPPERS);
-        createSheet(Lists.newArrayList(network.getTwoWindingsTransformers()), wb, titleCellStyle, "Transformers", TRANSFO_MAPPERS);
+        createSheet(Lists.newArrayList(network.getTwoWindingsTransformers()), wb, titleCellStyle, "2WindingsTransformers", TRANSFO_MAPPERS);
+        createSheet(Lists.newArrayList(network.getThreeWindingsTransformers()), wb, titleCellStyle, "3WindingsTransformers", T3WT_MAPPERS);
         createSheet(Lists.newArrayList(network.getGenerators()), wb, titleCellStyle, "Generators", GENERATOR_MAPPERS);
         createSheet(Lists.newArrayList(network.getHvdcConverterStations()), wb, titleCellStyle, "HVDC converter stations", HVDC_MAPPERS);
         createSheet(Lists.newArrayList(network.getLoads()), wb, titleCellStyle, "Loads", LOAD_MAPPERS);
         createSheet(Lists.newArrayList(network.getShuntCompensators()), wb, titleCellStyle, "Shunts", SHUNT_MAPPERS);
+        createSheet(Lists.newArrayList(network.getStaticVarCompensators()), wb, titleCellStyle, "Static VAR Compensators", SVC_MAPPERS);
     }
 
     public void generateXls(Path xsl) {

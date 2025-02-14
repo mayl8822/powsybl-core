@@ -3,25 +3,26 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network.ext;
 
 import com.powsybl.ucte.network.UcteCountryCode;
 import com.powsybl.ucte.network.UcteNodeCode;
 import com.powsybl.ucte.network.UcteVoltageLevelCode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class UcteSubstationTest {
+class UcteSubstationTest {
 
     @Test
-    public void test() {
+    void test() {
         UcteNodeCode node = new UcteNodeCode(UcteCountryCode.FR, "AAAAA", UcteVoltageLevelCode.VL_380, '1');
         UcteSubstation s1 = new UcteSubstation("S1", Collections.emptyList());
         UcteVoltageLevel vl = new UcteVoltageLevel("VL", s1, Collections.singletonList(node));

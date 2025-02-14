@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
@@ -16,18 +17,18 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public abstract class AbstractObjectConversion {
 
-    public AbstractObjectConversion(String type, PropertyBag properties, Context context) {
+    protected AbstractObjectConversion(String type, PropertyBag properties, Context context) {
         this.type = Objects.requireNonNull(type);
         this.p = Objects.requireNonNull(properties);
         this.ps = null;
         this.context = Objects.requireNonNull(context);
     }
 
-    public AbstractObjectConversion(String type, PropertyBags properties, Context context) {
+    protected AbstractObjectConversion(String type, PropertyBags properties, Context context) {
         this.type = Objects.requireNonNull(type);
         this.p = null;
         this.ps = Objects.requireNonNull(properties);
@@ -61,33 +62,8 @@ public abstract class AbstractObjectConversion {
         return (int) Math.round(value);
     }
 
-    public boolean presentMandatoryProperty(String pname) {
-        if (!p.containsKey(pname)) {
-            invalid("Missing property " + pname);
-            return false;
-        }
-        return true;
-    }
-
-    public boolean inRange(String p, int x, int xmin, int xmax) {
-        if (x < xmin || x > xmax) {
-            invalid(() -> String.format("%s value %d not in range [%d, %d]", p, x, xmin, xmax));
-            return false;
-        }
-        return true;
-    }
-
-    public void invalid(Supplier<String> reason) {
-        context.invalid(what(), reason);
-    }
-
     public void invalid(String reason) {
         context.invalid(what(), reason);
-    }
-
-    public void invalid(String what, String reason, double defaultValue) {
-        Supplier<String> reason1 = () -> String.format("%s. Used default value %f", reason, defaultValue);
-        context.invalid(complete(what), reason1);
     }
 
     public void ignored(String reason) {

@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.iidm.network.tck;
@@ -10,11 +11,11 @@ package com.powsybl.iidm.network.tck;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import org.junit.Assert;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
 public abstract class AbstractBusTerminalTest {
 
@@ -29,7 +30,7 @@ public abstract class AbstractBusTerminalTest {
         try {
             network.getLoad("LOAD").getTerminal().getBusBreakerView().setConnectableBus("UNKNOWN");
         } catch (NullPointerException e) {
-            Assert.fail();
+            fail();
         } catch (PowsyblException e) {
             // Ignored
         }

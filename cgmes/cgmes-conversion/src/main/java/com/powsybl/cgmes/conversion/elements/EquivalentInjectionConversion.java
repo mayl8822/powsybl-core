@@ -3,26 +3,30 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
 
 import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.conversion.Conversion;
+import com.powsybl.cgmes.model.CgmesNames;
 import com.powsybl.cgmes.model.CgmesTerminal;
 import com.powsybl.cgmes.model.PowerFlow;
 import com.powsybl.iidm.network.*;
 import com.powsybl.triplestore.api.PropertyBag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class EquivalentInjectionConversion extends AbstractReactiveLimitsOwnerConversion {
 
     private static final String REGULATION_TARGET = "regulationTarget";
 
     public EquivalentInjectionConversion(PropertyBag ei, Context context) {
-        super("EquivalentInjection", ei, context);
+        super(CgmesNames.EQUIVALENT_INJECTION, ei, context);
     }
 
     @Override
@@ -84,10 +88,10 @@ public class EquivalentInjectionConversion extends AbstractReactiveLimitsOwnerCo
         // the original ACLineSegment or Switch terminals
         // We want to keep track add this equivalent injection terminal
         // under a separate, specific, alias type
-        dl.addAlias(this.id, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "EquivalentInjection");
+        dl.setProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.EQUIVALENT_INJECTION, this.id);
         CgmesTerminal cgmesTerminal = context.cgmes().terminal(terminalId());
         if (cgmesTerminal != null) {
-            dl.addAlias(cgmesTerminal.id(), Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "EquivalentInjectionTerminal");
+            dl.setProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "EquivalentInjectionTerminal", cgmesTerminal.id());
         }
         return dl;
     }
@@ -111,6 +115,12 @@ public class EquivalentInjectionConversion extends AbstractReactiveLimitsOwnerCo
         addAliasesAndProperties(g);
         convertedTerminals(g.getTerminal());
         convertReactiveLimits(g);
+
+        addSpecificProperties(g);
+    }
+
+    private static void addSpecificProperties(Generator generator) {
+        generator.setProperty(Conversion.PROPERTY_CGMES_ORIGINAL_CLASS, CgmesNames.EQUIVALENT_INJECTION);
     }
 
     static class Regulation {
@@ -126,17 +136,16 @@ public class EquivalentInjectionConversion extends AbstractReactiveLimitsOwnerCo
         boolean regulationCapability = p.asBoolean("regulationCapability", false);
         regulation.status = p.asBoolean("regulationStatus", false) && regulationCapability;
         if (!p.containsKey("regulationStatus") || !p.containsKey(REGULATION_TARGET)) {
-            context.missing(String.format("Missing regulationStatus or regulationTarget for EquivalentInjection %s. Voltage regulation is considered as off.", id));
+            LOG.trace("Attributes regulationStatus or regulationTarget not present for equivalent injection {}. Voltage regulation is considered as off.", id);
         }
 
         regulation.status = regulation.status && terminalConnected();
         regulation.targetV = Double.NaN;
         if (regulation.status) {
             regulation.targetV = p.asDouble(REGULATION_TARGET);
-            if (regulation.targetV == 0) {
-                fixed(REGULATION_TARGET, "Target voltage value can not be zero", regulation.targetV,
-                        voltageLevel().getNominalV());
-                regulation.targetV = voltageLevel().getNominalV();
+            if (Double.isNaN(regulation.targetV) || regulation.targetV == 0) {
+                missing("Valid target voltage value (voltage regulation is considered as off)");
+                regulation.status = false;
             }
         }
 
@@ -150,4 +159,6 @@ public class EquivalentInjectionConversion extends AbstractReactiveLimitsOwnerCo
 
         return regulation;
     }
+
+    private static final Logger LOG = LoggerFactory.getLogger(EquivalentInjectionConversion.class);
 }

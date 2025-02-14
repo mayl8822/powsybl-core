@@ -3,65 +3,70 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion;
+
+import com.powsybl.cgmes.conversion.Conversion.Config;
+import com.powsybl.cgmes.conversion.elements.hvdc.DcMapping;
+import com.powsybl.cgmes.conversion.naming.NamingStrategy;
+import com.powsybl.cgmes.model.CgmesModel;
+import com.powsybl.cgmes.model.CgmesNames;
+import com.powsybl.cgmes.model.PowerFlow;
+import com.powsybl.commons.report.ReportNode;
+import com.powsybl.iidm.network.IdentifiableType;
+import com.powsybl.iidm.network.Network;
+import com.powsybl.iidm.network.Terminal;
+import com.powsybl.triplestore.api.PropertyBags;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-import com.powsybl.iidm.network.IdentifiableType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.powsybl.cgmes.conversion.Conversion.Config;
-import com.powsybl.cgmes.conversion.elements.hvdc.DcMapping;
-import com.powsybl.cgmes.model.CgmesModel;
-import com.powsybl.cgmes.model.CgmesNames;
-import com.powsybl.cgmes.model.PowerFlow;
-import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.network.Terminal;
-import com.powsybl.triplestore.api.PropertyBag;
-import com.powsybl.triplestore.api.PropertyBags;
-
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class Context {
 
-    // Log messages
-    private static final String FIXED_REASON = "Fixed {}. Reason: {}";
-    private static final String INVALID_REASON = "Invalid {}. Reason: {}";
-    private static final String IGNORED_REASON = "Ignored {}. Reason: {}";
-
     public Context(CgmesModel cgmes, Config config, Network network) {
+        this(cgmes, config, network, ReportNode.NO_OP);
+    }
+
+    public Context(CgmesModel cgmes, Config config, Network network, ReportNode reportNode) {
         this.cgmes = Objects.requireNonNull(cgmes);
         this.config = Objects.requireNonNull(config);
         this.network = Objects.requireNonNull(network);
+        pushReportNode(Objects.requireNonNull(reportNode));
 
         // Even if the CGMES model is node-breaker,
         // we could decide to ignore the connectivity nodes and
         // create buses directly from topological nodes,
         // the configuration says if we are performing the conversion
         // based on existing node-breaker info
-        nodeBreaker = cgmes.isNodeBreaker() && config.useNodeBreaker();
+        nodeBreaker = cgmes.isNodeBreaker() && !config.importNodeBreakerAsBusBreaker();
 
         namingStrategy = config.getNamingStrategy();
         cgmesBoundary = new CgmesBoundary(cgmes);
-        substationIdMapping = new SubstationIdMapping(this);
+        nodeContainerMapping = new NodeContainerMapping(this);
         terminalMapping = new TerminalMapping();
         dcMapping = new DcMapping(this);
         loadingLimitsMapping = new LoadingLimitsMapping(this);
         regulatingControlMapping = new RegulatingControlMapping(this);
-        nodeMapping = new NodeMapping();
+        nodeMapping = new NodeMapping(this);
 
-        ratioTapChangerTables = new HashMap<>();
-        phaseTapChangerTables = new HashMap<>();
-        reactiveCapabilityCurveData = new HashMap<>();
-        powerTransformerRatioTapChangers = new HashMap<>();
-        powerTransformerPhaseTapChangers = new HashMap<>();
+        cachedGroupedTransformerEnds = new HashMap<>();
+        cachedGroupedRatioTapChangers = new HashMap<>();
+        cachedGroupedRatioTapChangerTablePoints = new HashMap<>();
+        cachedGroupedPhaseTapChangers = new HashMap<>();
+        cachedGroupedPhaseTapChangerTablePoints = new HashMap<>();
+        cachedGroupedShuntCompensatorPoints = new HashMap<>();
+        cachedGroupedReactiveCapabilityCurveData = new HashMap<>();
+
+        buildCaches();
     }
 
     public CgmesModel cgmes() {
@@ -106,8 +111,8 @@ public class Context {
         return nodeMapping;
     }
 
-    public SubstationIdMapping substationIdMapping() {
-        return substationIdMapping;
+    public NodeContainerMapping nodeContainerMapping() {
+        return nodeContainerMapping;
     }
 
     public CgmesBoundary boundary() {
@@ -136,139 +141,152 @@ public class Context {
         return nodeId + "_S";
     }
 
-    public void loadReactiveCapabilityCurveData() {
-        PropertyBags rccdata = cgmes.reactiveCapabilityCurveData();
-        if (rccdata == null) {
-            return;
-        }
-        rccdata.forEach(p -> {
-            String curveId = p.getId("ReactiveCapabilityCurve");
-            reactiveCapabilityCurveData.computeIfAbsent(curveId, cid -> new PropertyBags()).add(p);
+    private void buildCaches() {
+        buildCache(cachedGroupedTransformerEnds, cgmes().transformerEnds(), CgmesNames.POWER_TRANSFORMER);
+        buildCache(cachedGroupedRatioTapChangers, cgmes().ratioTapChangers(), CgmesNames.POWER_TRANSFORMER);
+        buildCache(cachedGroupedRatioTapChangerTablePoints, cgmes().ratioTapChangerTablePoints(), CgmesNames.RATIO_TAP_CHANGER_TABLE);
+        buildCache(cachedGroupedPhaseTapChangers, cgmes().phaseTapChangers(), CgmesNames.POWER_TRANSFORMER);
+        buildCache(cachedGroupedPhaseTapChangerTablePoints, cgmes().phaseTapChangerTablePoints(), CgmesNames.PHASE_TAP_CHANGER_TABLE);
+        buildCache(cachedGroupedShuntCompensatorPoints, cgmes().nonlinearShuntCompensatorPoints(), "Shunt");
+        buildCache(cachedGroupedReactiveCapabilityCurveData, cgmes().reactiveCapabilityCurveData(), "ReactiveCapabilityCurve");
+    }
+
+    private void buildCache(Map<String, PropertyBags> cache, PropertyBags ps, String groupName) {
+        ps.forEach(p -> {
+            String groupId = p.getId(groupName);
+            cache.computeIfAbsent(groupId, b -> new PropertyBags()).add(p);
         });
+    }
+
+    public PropertyBags transformerEnds(String transformerId) {
+        return cachedGroupedTransformerEnds.getOrDefault(transformerId, new PropertyBags());
+    }
+
+    public PropertyBags ratioTapChangers(String transformerId) {
+        return cachedGroupedRatioTapChangers.getOrDefault(transformerId, new PropertyBags());
+    }
+
+    public PropertyBags ratioTapChangerTablePoints(String tableId) {
+        return cachedGroupedRatioTapChangerTablePoints.getOrDefault(tableId, new PropertyBags());
+    }
+
+    public PropertyBags phaseTapChangers(String transformerId) {
+        return cachedGroupedPhaseTapChangers.getOrDefault(transformerId, new PropertyBags());
+    }
+
+    public PropertyBags phaseTapChangerTablePoints(String tableId) {
+        return cachedGroupedPhaseTapChangerTablePoints.getOrDefault(tableId, new PropertyBags());
+    }
+
+    public PropertyBags nonlinearShuntCompensatorPoints(String shuntId) {
+        return cachedGroupedShuntCompensatorPoints.getOrDefault(shuntId, new PropertyBags());
     }
 
     public PropertyBags reactiveCapabilityCurveData(String curveId) {
-        return reactiveCapabilityCurveData.get(curveId);
+        return cachedGroupedReactiveCapabilityCurveData.getOrDefault(curveId, new PropertyBags());
     }
 
-    public void loadRatioTapChangers() {
-        cgmes.ratioTapChangers().forEach(ratio -> {
-            String id = ratio.getId(CgmesNames.RATIO_TAP_CHANGER);
-            powerTransformerRatioTapChangers.put(id, ratio);
-        });
+    // Handling issues found during conversion
+
+    public ReportNode getReportNode() {
+        return network.getReportNodeContext().getReportNode();
     }
 
-    public PropertyBag ratioTapChanger(String id) {
-        return powerTransformerRatioTapChangers.get(id);
+    public void pushReportNode(ReportNode node) {
+        network.getReportNodeContext().pushReportNode(node);
     }
 
-    public void loadPhaseTapChangers() {
-        cgmes.phaseTapChangers().forEach(phase -> {
-            String id = phase.getId(CgmesNames.PHASE_TAP_CHANGER);
-            powerTransformerPhaseTapChangers.put(id, phase);
-        });
+    public ReportNode popReportNode() {
+        return network.getReportNodeContext().popReportNode();
     }
 
-    public PropertyBag phaseTapChanger(String id) {
-        return powerTransformerPhaseTapChangers.get(id);
-    }
+    private enum ConversionIssueCategory {
+        INVALID("Invalid"),
+        IGNORED("Ignored"),
+        MISSING("Missing"),
+        FIXED("Fixed"),
+        PENDING("Pending");
 
-    public void loadRatioTapChangerTables() {
-        PropertyBags rtcpoints = cgmes.ratioTapChangerTablesPoints();
-        if (rtcpoints == null) {
-            return;
+        ConversionIssueCategory(String description) {
+            this.description = description;
         }
-        rtcpoints.forEach(p -> {
-            String tableId = p.getId("RatioTapChangerTable");
-            ratioTapChangerTables.computeIfAbsent(tableId, tid -> new PropertyBags()).add(p);
-        });
-    }
 
-    public void loadPhaseTapChangerTables() {
-        PropertyBags ptcpoints = cgmes.phaseTapChangerTablesPoints();
-        if (ptcpoints == null) {
-            return;
+        @Override
+        public String toString() {
+            return description;
         }
-        ptcpoints.forEach(p -> {
-            String tableId = p.getId("PhaseTapChangerTable");
-            phaseTapChangerTables.computeIfAbsent(tableId, tid -> new PropertyBags()).add(p);
-        });
-    }
 
-    public PropertyBags ratioTapChangerTable(String tableId) {
-        return ratioTapChangerTables.get(tableId);
-    }
-
-    public PropertyBags phaseTapChangerTable(String tableId) {
-        return phaseTapChangerTables.get(tableId);
+        private final String description;
     }
 
     public void invalid(String what, String reason) {
-        LOG.warn(INVALID_REASON, what, reason);
+        handleIssue(ConversionIssueCategory.INVALID, what, reason);
     }
 
     public void invalid(String what, Supplier<String> reason) {
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(INVALID_REASON, what, reason.get());
-        }
-    }
-
-    public void invalid(Supplier<String> what, Supplier<String> reason) {
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(INVALID_REASON, what.get(), reason.get());
-        }
+        handleIssue(ConversionIssueCategory.INVALID, what, reason);
     }
 
     public void ignored(String what, String reason) {
-        LOG.warn(IGNORED_REASON, what, reason);
+        handleIssue(ConversionIssueCategory.IGNORED, what, reason);
     }
 
     public void ignored(String what, Supplier<String> reason) {
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(IGNORED_REASON, what, reason.get());
-        }
+        handleIssue(ConversionIssueCategory.IGNORED, what, reason);
     }
 
     public void pending(String what, Supplier<String> reason) {
-        if (LOG.isInfoEnabled()) {
-            LOG.info("PENDING {}. Reason: {}", what, reason.get());
-        }
+        handleIssue(ConversionIssueCategory.PENDING, what, reason);
     }
 
     public void fixed(String what, String reason) {
-        LOG.warn(FIXED_REASON, what, reason);
-    }
-
-    public void fixed(Supplier<String> what, String reason) {
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(FIXED_REASON, what.get(), reason);
-        }
+        handleIssue(ConversionIssueCategory.FIXED, what, reason);
     }
 
     public void fixed(String what, Supplier<String> reason) {
-        if (LOG.isWarnEnabled()) {
-            LOG.warn(FIXED_REASON, what, reason.get());
-        }
+        handleIssue(ConversionIssueCategory.FIXED, what, reason);
     }
 
     public void fixed(String what, String reason, double wrong, double fixed) {
-        LOG.warn("Fixed {}. Reason: {}. Wrong {}, fixed {}", what, reason, wrong, fixed);
+        Supplier<String> reason1 = () -> String.format("%s. Wrong %.4f, was fixed to %.4f", reason, wrong, fixed);
+        handleIssue(ConversionIssueCategory.FIXED, what, reason1);
     }
 
     public void missing(String what) {
-        LOG.warn("Missing {}", what);
+        String reason1 = "";
+        handleIssue(ConversionIssueCategory.MISSING, what, reason1);
+    }
+
+    public void missing(String what, Supplier<String> reason) {
+        handleIssue(ConversionIssueCategory.MISSING, what, reason);
     }
 
     public void missing(String what, double defaultValue) {
-        LOG.warn("Missing {}. Used default value {}", what, defaultValue);
+        Supplier<String> reason1 = () -> String.format("Using default value %.4f", defaultValue);
+        handleIssue(ConversionIssueCategory.MISSING, what, reason1);
+    }
+
+    private void handleIssue(ConversionIssueCategory category, String what, String reason) {
+        handleIssue(category, what, () -> reason);
+    }
+
+    private void handleIssue(ConversionIssueCategory category, String what, Supplier<String> reason) {
+        logIssue(category, what, reason);
+    }
+
+    private static void logIssue(ConversionIssueCategory category, String what, Supplier<String> reason) {
+        if (LOG.isWarnEnabled()) {
+            LOG.warn("{}: {}. Reason: {}", category, what, reason.get());
+        }
     }
 
     private final CgmesModel cgmes;
     private final Network network;
     private final Config config;
+
     private final boolean nodeBreaker;
     private final NamingStrategy namingStrategy;
-    private final SubstationIdMapping substationIdMapping;
+    private final NodeContainerMapping nodeContainerMapping;
     private final CgmesBoundary cgmesBoundary;
     private final TerminalMapping terminalMapping;
     private final NodeMapping nodeMapping;
@@ -276,11 +294,13 @@ public class Context {
     private final LoadingLimitsMapping loadingLimitsMapping;
     private final RegulatingControlMapping regulatingControlMapping;
 
-    private final Map<String, PropertyBags> ratioTapChangerTables;
-    private final Map<String, PropertyBags> phaseTapChangerTables;
-    private final Map<String, PropertyBags> reactiveCapabilityCurveData;
-    private final Map<String, PropertyBag> powerTransformerRatioTapChangers;
-    private final Map<String, PropertyBag> powerTransformerPhaseTapChangers;
+    private final Map<String, PropertyBags> cachedGroupedTransformerEnds;
+    private final Map<String, PropertyBags> cachedGroupedRatioTapChangers;
+    private final Map<String, PropertyBags> cachedGroupedRatioTapChangerTablePoints;
+    private final Map<String, PropertyBags> cachedGroupedPhaseTapChangers;
+    private final Map<String, PropertyBags> cachedGroupedPhaseTapChangerTablePoints;
+    private final Map<String, PropertyBags> cachedGroupedShuntCompensatorPoints;
+    private final Map<String, PropertyBags> cachedGroupedReactiveCapabilityCurveData;
 
     private static final Logger LOG = LoggerFactory.getLogger(Context.class);
 }

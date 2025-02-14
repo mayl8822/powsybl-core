@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.iidm.network.impl;
@@ -12,16 +13,16 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManager;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import gnu.trove.list.array.TIntArrayList;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.powsybl.iidm.network.VariantManagerConstants.INITIAL_VARIANT_ID;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
-public class MultiVariantExtensionTest {
+class MultiVariantExtensionTest {
 
     static class LoadExt extends AbstractMultiVariantIdentifiableExtension<Load> {
 
@@ -77,7 +78,7 @@ public class MultiVariantExtensionTest {
     }
 
     @Test
-    public void test() {
+    void test() {
         String variant1 = "variant1";
         String variant2 = "variant2";
 

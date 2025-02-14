@@ -3,20 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.comparator;
 
 import java.util.Collections;
 
-import com.powsybl.tools.AbstractToolTest;
+import com.powsybl.tools.test.AbstractToolTest;
 import com.powsybl.tools.Command;
 import com.powsybl.tools.Tool;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public class CompareSecurityAnalysisResultsToolTest extends AbstractToolTest {
+class CompareSecurityAnalysisResultsToolTest extends AbstractToolTest {
 
     @Override
     protected Iterable<Tool> getTools() {

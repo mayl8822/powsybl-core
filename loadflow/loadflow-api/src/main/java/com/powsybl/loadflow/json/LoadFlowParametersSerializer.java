@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.json;
 
@@ -16,7 +17,7 @@ import com.powsybl.loadflow.LoadFlowParameters;
 import java.io.IOException;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
 public class LoadFlowParametersSerializer extends StdSerializer<LoadFlowParameters> {
 
@@ -33,7 +34,7 @@ public class LoadFlowParametersSerializer extends StdSerializer<LoadFlowParamete
         jsonGenerator.writeStringField("voltageInitMode", parameters.getVoltageInitMode().name());
         jsonGenerator.writeBooleanField("transformerVoltageControlOn", parameters.isTransformerVoltageControlOn());
         jsonGenerator.writeBooleanField("phaseShifterRegulationOn", parameters.isPhaseShifterRegulationOn());
-        jsonGenerator.writeBooleanField("noGeneratorReactiveLimits", parameters.isNoGeneratorReactiveLimits());
+        jsonGenerator.writeBooleanField("useReactiveLimits", parameters.isUseReactiveLimits());
         jsonGenerator.writeBooleanField("twtSplitShuntAdmittance", parameters.isTwtSplitShuntAdmittance());
         jsonGenerator.writeBooleanField("shuntCompensatorVoltageControlOn", parameters.isShuntCompensatorVoltageControlOn());
         jsonGenerator.writeBooleanField("readSlackBus", parameters.isReadSlackBus());
@@ -49,6 +50,7 @@ public class LoadFlowParametersSerializer extends StdSerializer<LoadFlowParamete
         jsonGenerator.writeEndArray();
         jsonGenerator.writeStringField("connectedComponentMode", parameters.getConnectedComponentMode().name());
         jsonGenerator.writeBooleanField("hvdcAcEmulation", parameters.isHvdcAcEmulation());
+        jsonGenerator.writeNumberField("dcPowerFactor", parameters.getDcPowerFactor());
 
         JsonUtil.writeExtensions(parameters, jsonGenerator, serializerProvider, JsonLoadFlowParameters.getExtensionSerializers()::get);
 

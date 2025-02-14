@@ -3,21 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.converter;
 
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
+import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.datasource.DataSource;
 import com.powsybl.commons.datasource.ReadOnlyDataSource;
-import com.powsybl.commons.reporter.Reporter;
+import com.powsybl.commons.parameters.ConfiguredParameter;
+import com.powsybl.commons.parameters.Parameter;
+import com.powsybl.commons.parameters.ParameterDefaultValueConfig;
+import com.powsybl.commons.parameters.ParameterType;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.entsoe.util.*;
-import com.powsybl.iidm.import_.Importer;
+import com.powsybl.iidm.network.Importer;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.SlackTerminal;
 import com.powsybl.ucte.network.*;
@@ -25,6 +29,7 @@ import com.powsybl.ucte.network.ext.UcteNetworkExt;
 import com.powsybl.ucte.network.ext.UcteSubstation;
 import com.powsybl.ucte.network.ext.UcteVoltageLevel;
 import com.powsybl.ucte.network.io.UcteReader;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,10 +38,10 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.powsybl.ucte.converter.util.UcteConstants.*;
+import static com.powsybl.ucte.converter.util.UcteConverterConstants.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 @AutoService(Importer.class)
 public class UcteImporter implements Importer {
@@ -46,6 +51,36 @@ public class UcteImporter implements Importer {
     private static final double LINE_MIN_Z = 0.05;
 
     private static final String[] EXTENSIONS = {"uct", "UCT"};
+
+    public static final String COMBINE_PHASE_ANGLE_REGULATION = "ucte.import.combine-phase-angle-regulation";
+    public static final String CREATE_AREAS = "ucte.import.create-areas";
+    public static final String AREAS_DC_XNODES = "ucte.import.areas-dc-xnodes";
+    public static final String UNEXPECTED_UCTE_ELEMENT_STATUS = "Unexpected UcteElementStatus value: ";
+    public static final String X_NODE = "_XNode";
+
+    private static final Parameter COMBINE_PHASE_ANGLE_REGULATION_PARAMETER
+            = new Parameter(COMBINE_PHASE_ANGLE_REGULATION, ParameterType.BOOLEAN, "Combine phase and angle regulation", false);
+
+    private static final Parameter CREATE_AREAS_PARAMETER
+            = new Parameter(CREATE_AREAS, ParameterType.BOOLEAN, "Create Areas", true);
+    private static final Parameter AREAS_DC_XNODES_PARAMETER
+            = new Parameter(AREAS_DC_XNODES, ParameterType.STRING_LIST, "X-Nodes to be considered as DC when creating area boundaries", List.of());
+
+    private static final List<Parameter> PARAMETERS = List.of(
+            COMBINE_PHASE_ANGLE_REGULATION_PARAMETER,
+            CREATE_AREAS_PARAMETER,
+            AREAS_DC_XNODES_PARAMETER
+    );
+
+    private final ParameterDefaultValueConfig defaultValueConfig;
+
+    public UcteImporter() {
+        this(PlatformConfig.defaultConfig());
+    }
+
+    public UcteImporter(PlatformConfig platformConfig) {
+        defaultValueConfig = new ParameterDefaultValueConfig(platformConfig);
+    }
 
     private static double getConductance(UcteTransformer ucteTransfo) {
         double g = 0;
@@ -64,29 +99,18 @@ public class UcteImporter implements Importer {
     }
 
     private static boolean isFictitious(UcteElement ucteElement) {
-        switch (ucteElement.getStatus()) {
-            case EQUIVALENT_ELEMENT_IN_OPERATION:
-            case EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
-                return true;
-            case REAL_ELEMENT_IN_OPERATION:
-            case REAL_ELEMENT_OUT_OF_OPERATION:
-            case BUSBAR_COUPLER_IN_OPERATION:
-            case BUSBAR_COUPLER_OUT_OF_OPERATION:
-                return false;
-            default:
-                throw new AssertionError("Unexpected UcteElementStatus value: " + ucteElement.getStatus());
-        }
+        return switch (ucteElement.getStatus()) {
+            case EQUIVALENT_ELEMENT_IN_OPERATION, EQUIVALENT_ELEMENT_OUT_OF_OPERATION -> true;
+            case REAL_ELEMENT_IN_OPERATION, REAL_ELEMENT_OUT_OF_OPERATION, BUSBAR_COUPLER_IN_OPERATION,
+                 BUSBAR_COUPLER_OUT_OF_OPERATION -> false;
+        };
     }
 
     private static boolean isFictitious(UcteNode ucteNode) {
-        switch (ucteNode.getStatus()) {
-            case EQUIVALENT:
-                return true;
-            case REAL:
-                return false;
-            default:
-                throw new AssertionError("Unexpected UcteNodeStatus value: " + ucteNode.getStatus());
-        }
+        return switch (ucteNode.getStatus()) {
+            case EQUIVALENT -> true;
+            case REAL -> false;
+        };
     }
 
     /**
@@ -211,28 +235,13 @@ public class UcteImporter implements Importer {
 
         EnergySource energySource = EnergySource.OTHER;
         if (ucteNode.getPowerPlantType() != null) {
-            switch (ucteNode.getPowerPlantType()) {
-                case C:
-                case G:
-                case L:
-                case O:
-                    energySource = EnergySource.THERMAL;
-                    break;
-                case H:
-                    energySource = EnergySource.HYDRO;
-                    break;
-                case N:
-                    energySource = EnergySource.NUCLEAR;
-                    break;
-                case W:
-                    energySource = EnergySource.WIND;
-                    break;
-                case F:
-                    energySource = EnergySource.OTHER;
-                    break;
-                default:
-                    throw new AssertionError("Unexpected UctePowerPlantType value: " + ucteNode.getPowerPlantType());
-            }
+            energySource = switch (ucteNode.getPowerPlantType()) {
+                case C, G, L, O -> EnergySource.THERMAL;
+                case H -> EnergySource.HYDRO;
+                case N -> EnergySource.NUCLEAR;
+                case W -> EnergySource.WIND;
+                case F -> EnergySource.OTHER;
+            };
         }
 
         double generatorP = isValueValid(ucteNode.getActivePowerGeneration()) ? -ucteNode.getActivePowerGeneration() : 0;
@@ -262,7 +271,7 @@ public class UcteImporter implements Importer {
     private static void createDanglingLine(UcteLine ucteLine, boolean connected,
                                            UcteNode xnode, UcteNodeCode nodeCode, UcteVoltageLevel ucteVoltageLevel,
                                            Network network) {
-        LOGGER.trace("Create dangling line '{}' (Xnode='{}')", ucteLine.getId(), xnode.getCode());
+        LOGGER.trace("Create dangling line '{}' (X-node='{}')", ucteLine.getId(), xnode.getCode());
 
         double p0 = isValueValid(xnode.getActiveLoad()) ? xnode.getActiveLoad() : 0;
         double q0 = isValueValid(xnode.getReactiveLoad()) ? xnode.getReactiveLoad() : 0;
@@ -281,7 +290,7 @@ public class UcteImporter implements Importer {
                 .setB(getSusceptance(ucteLine))
                 .setP0(p0)
                 .setQ0(q0)
-                .setUcteXnodeCode(xnode.getCode().toString())
+                .setPairingKey(xnode.getCode().toString())
                 .setFictitious(isFictitious(ucteLine))
                 .newGeneration()
                 .setTargetP(-targetP)
@@ -300,8 +309,6 @@ public class UcteImporter implements Importer {
                     .setMaxQ(-xnode.getMaximumPermissibleReactivePowerGeneration())
                     .add();
         }
-
-        dl.newExtension(XnodeAdder.class).withCode(xnode.getCode().toString()).add();
 
         if (ucteLine.getCurrentLimit() != null) {
             dl.newCurrentLimits()
@@ -349,6 +356,10 @@ public class UcteImporter implements Importer {
 
         if (ucteVoltageLevel1 != ucteVoltageLevel2) {
             throw new UcteException("Nodes coupled with a low impedance line are expected to be in the same voltage level");
+        }
+        if (nodeCode1.equals(nodeCode2)) {
+            LOGGER.error("Coupler '{}' has same bus at both ends: ignored", ucteLine.getId());
+            return;
         }
         VoltageLevel voltageLevel = network.getVoltageLevel(ucteVoltageLevel1.getName());
         Switch couplerSwitch = voltageLevel.getBusBreakerView().newSwitch()
@@ -436,7 +447,7 @@ public class UcteImporter implements Importer {
                 createDanglingLine(ucteLine, connected, xnode, nodeCode1, ucteVoltageLevel1, network);
 
             } else {
-                throw new UcteException("Line between 2 Xnodes");
+                throw new UcteException("Line between 2 X-nodes: '" + nodeCode1 + "' and '" + nodeCode2 + "'");
             }
         }
     }
@@ -449,28 +460,30 @@ public class UcteImporter implements Importer {
             UcteVoltageLevel ucteVoltageLevel2 = ucteNetwork.getVoltageLevel(nodeCode2);
 
             switch (ucteLine.getStatus()) {
-                case BUSBAR_COUPLER_IN_OPERATION:
-                case BUSBAR_COUPLER_OUT_OF_OPERATION:
+                case BUSBAR_COUPLER_IN_OPERATION, BUSBAR_COUPLER_OUT_OF_OPERATION:
                     createCoupler(ucteNetwork, network, ucteLine, nodeCode1, nodeCode2, ucteVoltageLevel1, ucteVoltageLevel2);
                     break;
 
-                case REAL_ELEMENT_IN_OPERATION:
-                case REAL_ELEMENT_OUT_OF_OPERATION:
-                case EQUIVALENT_ELEMENT_IN_OPERATION:
-                case EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
+                case REAL_ELEMENT_IN_OPERATION,
+                     REAL_ELEMENT_OUT_OF_OPERATION,
+                     EQUIVALENT_ELEMENT_IN_OPERATION,
+                     EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
                     createLine(ucteNetwork, network, ucteLine, nodeCode1, nodeCode2, ucteVoltageLevel1, ucteVoltageLevel2);
                     break;
 
                 default:
-                    throw new AssertionError("Unexpected UcteElementStatus value: " + ucteLine.getStatus());
+                    throw new IllegalStateException(UNEXPECTED_UCTE_ELEMENT_STATUS + ucteLine.getStatus());
             }
         }
     }
 
     private static void createRatioTapChanger(UctePhaseRegulation uctePhaseRegulation, TwoWindingsTransformer transformer) {
-
         LOGGER.trace("Create ratio tap changer '{}'", transformer.getId());
+        createRatioTapChangerAdder(uctePhaseRegulation, transformer)
+                .add();
+    }
 
+    private static RatioTapChangerAdder createRatioTapChangerAdder(UctePhaseRegulation uctePhaseRegulation, TwoWindingsTransformer transformer) {
         int lowerTap = getLowTapPosition(uctePhaseRegulation, transformer);
         RatioTapChangerAdder rtca = transformer.newRatioTapChanger()
                 .setLowTapPosition(lowerTap)
@@ -493,56 +506,102 @@ public class UcteImporter implements Importer {
                     .setB(0)
                     .endStep();
         }
-        rtca.add();
+        return rtca;
     }
 
-    private static void createPhaseTapChanger(UcteAngleRegulation ucteAngleRegulation, TwoWindingsTransformer transformer) {
-
-        LOGGER.trace("Create phase tap changer '{}'", transformer.getId());
+    private static PhaseTapChangerAdder createPhaseTapChangerAdder(UcteAngleRegulation ucteAngleRegulation, TwoWindingsTransformer transformer,
+                                                                   Double currentRatioTapChangerRho) {
         int lowerTap = getLowTapPosition(ucteAngleRegulation, transformer);
         PhaseTapChangerAdder ptca = transformer.newPhaseTapChanger()
                 .setLowTapPosition(lowerTap)
-                .setTapPosition(ucteAngleRegulation.getNp())
-                .setRegulationValue(ucteAngleRegulation.getP())
-                .setRegulationMode(PhaseTapChanger.RegulationMode.FIXED_TAP)
-                .setRegulating(false);
-
+                .setTapPosition(ucteAngleRegulation.getNp());
         if (!Double.isNaN(ucteAngleRegulation.getP())) {
-            ptca.setRegulationMode(PhaseTapChanger.RegulationMode.ACTIVE_POWER_CONTROL)
-                    .setTargetDeadband(0.0)
-                    .setRegulationTerminal(transformer.getTerminal1())
-                    .setRegulating(false); // should be set to true but many divergence on files are observed.
+            ptca.setRegulationValue(-ucteAngleRegulation.getP()) // minus because in the UCT model target flow follows generator convention
+                .setRegulationMode(PhaseTapChanger.RegulationMode.ACTIVE_POWER_CONTROL)
+                .setTargetDeadband(0.0)
+                .setRegulationTerminal(transformer.getTerminal1());
+        } else {
+            ptca.setRegulationMode(PhaseTapChanger.RegulationMode.FIXED_TAP);
         }
 
+        // By default, regulation is disabled because of some data inconsistency in live process
+        // that cause many divergence in subsequent power flow computation
+        ptca.setRegulating(false);
+
         for (int i = lowerTap; i <= Math.abs(lowerTap); i++) {
-            double rho;
-            double alpha;
             double dx = i * ucteAngleRegulation.getDu() / 100 * Math.cos(Math.toRadians(ucteAngleRegulation.getTheta()));
             double dy = i * ucteAngleRegulation.getDu() / 100 * Math.sin(Math.toRadians(ucteAngleRegulation.getTheta()));
-            switch (ucteAngleRegulation.getType()) {
-                case ASYM:
-                    rho = 1d / Math.hypot(dy, 1d + dx);
-                    alpha = Math.toDegrees(Math.atan2(dy, 1 + dx));
-                    break;
-
-                case SYMM:
-                    rho = 1d;
-                    alpha = Math.toDegrees(2 * Math.atan2(dy, 2 * (1d + dx)));
-                    break;
-
-                default:
-                    throw new AssertionError("Unexpected UcteAngleRegulationType value: " + ucteAngleRegulation.getType());
-            }
+            Pair<Double, Double> rhoAndAlpha = getRhoAndAlpha(ucteAngleRegulation, dx, dy, currentRatioTapChangerRho);
             ptca.beginStep()
-                    .setRho(rho)
-                    .setAlpha(-alpha) // minus because in the UCT model PST is on side 2 and side1 on IIDM model
+                    .setRho(rhoAndAlpha.getLeft())
+                    .setAlpha(-rhoAndAlpha.getRight()) // minus because in the UCT model PST is on side 2 and side1 on IIDM model
                     .setR(0)
                     .setX(0)
                     .setG(0)
                     .setB(0)
                     .endStep();
         }
-        ptca.add();
+        return ptca;
+    }
+
+    private static void createPhaseTapChanger(UcteAngleRegulation ucteAngleRegulation, TwoWindingsTransformer transformer) {
+        LOGGER.trace("Create phase tap changer '{}'", transformer.getId());
+        createPhaseTapChangerAdder(ucteAngleRegulation, transformer, null)
+                .add();
+    }
+
+    private static Pair<Double, Double> getRhoAndAlpha(UcteAngleRegulation ucteAngleRegulation, double dx, double dy,
+                                                       Double currentRatioTapChangerRho) {
+        if (currentRatioTapChangerRho != null && currentRatioTapChangerRho.equals(0.0)) {
+            throw new IllegalStateException("Unexpected non zero value for current ratio tap changer rho: " + currentRatioTapChangerRho);
+        }
+        double rho;
+        double alpha;
+        switch (ucteAngleRegulation.getType()) {
+            case ASYM -> {
+                if (currentRatioTapChangerRho == null) {
+                    rho = 1d / Math.hypot(dy, 1d + dx);
+                    alpha = Math.toDegrees(Math.atan2(dy, 1 + dx));
+                } else {
+                    double dxEq = dx + 1 / currentRatioTapChangerRho - 1.;
+                    rho = 1d / Math.hypot(dy, 1d + dxEq) / currentRatioTapChangerRho; // the formula already takes into account rhoInit, so we divide by rhoInit that will be carried by the ratio tap changer
+                    alpha = Math.toDegrees(Math.atan2(dy, 1 + dxEq));
+                }
+            }
+            case SYMM -> {
+                double dyHalf = dy / 2d;
+                double coeff = 1d;
+                if (currentRatioTapChangerRho != null) {
+                    coeff = 2d * currentRatioTapChangerRho - 1d;
+                }
+                double gamma = Math.toDegrees(Math.atan2(dyHalf * coeff, dx + 1d));
+                double dy22 = dyHalf * dyHalf;
+                alpha = gamma + Math.toDegrees(Math.atan2(dyHalf, 1d + dx)); // new alpha = defaultAlpha/2 + gamma    in case there is a ratio tap changer
+                rho = Math.sqrt((1d + dy22) / (1d + dy22 * coeff * coeff));
+            }
+            default -> throw new IllegalStateException("Unexpected UcteAngleRegulationType value: " + ucteAngleRegulation.getType());
+        }
+        return Pair.of(rho, alpha);
+    }
+
+    private static void createRatioAndPhaseTapChanger(UcteAngleRegulation ucteAngleRegulation, UctePhaseRegulation uctePhaseRegulation, TwoWindingsTransformer transformer) {
+
+        LOGGER.trace("Create phase tap changer combining both ratio and phase tap '{}'", transformer.getId());
+
+        // When there is both Ratio and Phase tap changers the combined action of the two can be described with the formula as follows:
+        // 1/rhoEq.cos(alphaEq) = 1 + nr.dUr + np.dUp.cos(Theta)        given that by definition :      nr.dUr = 1/rho_r -1
+        // 1/rhoEq.sin(alphaEq) = np.dUp.sin(Theta)
+        // where np is the tap number of phase changer and nr is the tap number of the ratio changer
+        // this should lead to a double entry table where the equivalent neq tap number depends both of nr and np
+        // We propose the following approximation : we compute 1/rhoEq and alphaEq at fixed current ratio tap nr = nro, we compute rho(nro)
+        // and build both equivalent phase tap changer and ratio tap changer such that it will be exact at ratio = nro
+
+        createRatioTapChangerAdder(uctePhaseRegulation, transformer)
+                .add();
+        transformer.getRatioTapChanger().setRegulating(false);
+        double currentRatioTapChangerRho = transformer.getRatioTapChanger().getCurrentStep().getRho();
+        createPhaseTapChangerAdder(ucteAngleRegulation, transformer, currentRatioTapChangerRho)
+                .add();
     }
 
     private static int getLowTapPosition(UctePhaseRegulation uctePhaseRegulation, TwoWindingsTransformer transformer) {
@@ -562,7 +621,7 @@ public class UcteImporter implements Importer {
             if (currentTapPosition < 0) {
                 floor = currentTapPosition;
             } else {
-                floor  = -currentTapPosition;
+                floor = -currentTapPosition;
             }
             LOGGER.info("Number of Taps for transformer '{}' is extended from '{}', to '{}'", transformer.getId(), initialTapsNumber, Math.abs(floor));
         }
@@ -590,7 +649,7 @@ public class UcteImporter implements Importer {
 
         UcteNode ucteXnode = ucteNetwork.getNode(xNodeCode);
 
-        LOGGER.warn("Create small impedance dangling line '{}{}' (transformer connected to XNODE '{}')",
+        LOGGER.warn("Create small impedance dangling line '{}{}' (transformer connected to X-node '{}')",
                 xNodeName, yNodeName, ucteXnode.getCode());
 
         double p0 = isValueValid(ucteXnode.getActiveLoad()) ? ucteXnode.getActiveLoad() : 0;
@@ -609,13 +668,12 @@ public class UcteImporter implements Importer {
                 .setB(0)
                 .setP0(p0)
                 .setQ0(q0)
-                .setUcteXnodeCode(ucteXnode.getCode().toString())
+                .setPairingKey(ucteXnode.getCode().toString())
                 .newGeneration()
                 .setTargetP(-targetP)
                 .setTargetQ(-targetQ)
                 .add()
                 .add();
-        yDanglingLine.newExtension(XnodeAdder.class).withCode(ucteXnode.getCode().toString()).add();
         addXnodeStatusProperty(ucteXnode, yDanglingLine);
         addGeographicalNameProperty(ucteXnode, yDanglingLine);
 
@@ -656,39 +714,31 @@ public class UcteImporter implements Importer {
     }
 
     private static boolean isConnected(UcteElement ucteElement) {
-        boolean connected;
-        switch (ucteElement.getStatus()) {
-            case REAL_ELEMENT_IN_OPERATION:
-            case EQUIVALENT_ELEMENT_IN_OPERATION:
-            case BUSBAR_COUPLER_IN_OPERATION:
-                connected = true;
-                break;
-
-            case REAL_ELEMENT_OUT_OF_OPERATION:
-            case EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
-            case BUSBAR_COUPLER_OUT_OF_OPERATION:
-                connected = false;
-                break;
-
-            default:
-                throw new AssertionError("Unexpected UcteElementStatus value: " + ucteElement.getStatus());
-        }
-        return connected;
+        return switch (ucteElement.getStatus()) {
+            case REAL_ELEMENT_IN_OPERATION, EQUIVALENT_ELEMENT_IN_OPERATION, BUSBAR_COUPLER_IN_OPERATION -> true;
+            case REAL_ELEMENT_OUT_OF_OPERATION, EQUIVALENT_ELEMENT_OUT_OF_OPERATION, BUSBAR_COUPLER_OUT_OF_OPERATION -> false;
+        };
     }
 
-    private static void addTapChangers(UcteNetworkExt ucteNetwork, UcteTransformer ucteTransfo, TwoWindingsTransformer transformer) {
+    private static void addTapChangers(UcteNetworkExt ucteNetwork, UcteTransformer ucteTransfo, TwoWindingsTransformer transformer,
+                                       boolean combinePhaseAngleRegulation) {
         UcteRegulation ucteRegulation = ucteNetwork.getRegulation(ucteTransfo.getId());
         if (ucteRegulation != null) {
-            if (ucteRegulation.getPhaseRegulation() != null) {
-                createRatioTapChanger(ucteRegulation.getPhaseRegulation(), transformer);
-            }
-            if (ucteRegulation.getAngleRegulation() != null) {
-                createPhaseTapChanger(ucteRegulation.getAngleRegulation(), transformer);
+            if (combinePhaseAngleRegulation && ucteRegulation.getPhaseRegulation() != null && ucteRegulation.getAngleRegulation() != null) {
+                createRatioAndPhaseTapChanger(ucteRegulation.getAngleRegulation(), ucteRegulation.getPhaseRegulation(), transformer);
+            } else {
+                if (ucteRegulation.getPhaseRegulation() != null) {
+                    createRatioTapChanger(ucteRegulation.getPhaseRegulation(), transformer);
+                }
+                if (ucteRegulation.getAngleRegulation() != null) {
+                    createPhaseTapChanger(ucteRegulation.getAngleRegulation(), transformer);
+                }
             }
         }
     }
 
-    private static void createTransformers(UcteNetworkExt ucteNetwork, Network network, EntsoeFileName ucteFileName) {
+    private static void createTransformers(UcteNetworkExt ucteNetwork, Network network, EntsoeFileName ucteFileName,
+                                           boolean combinePhaseAngleRegulation) {
         for (UcteTransformer ucteTransfo : ucteNetwork.getTransformers()) {
             UcteNodeCode nodeCode1 = ucteTransfo.getId().getNodeCode1();
             UcteNodeCode nodeCode2 = ucteTransfo.getId().getNodeCode2();
@@ -743,24 +793,16 @@ public class UcteImporter implements Importer {
             }
 
             addElementNameProperty(ucteTransfo, transformer);
-            addTapChangers(ucteNetwork, ucteTransfo, transformer);
+            addTapChangers(ucteNetwork, ucteTransfo, transformer, combinePhaseAngleRegulation);
             addNominalPowerProperty(ucteTransfo, transformer);
         }
     }
 
-    private static String getBusId(Bus bus) {
-        return bus != null ? bus.getId() : null;
-    }
-
-    private static DanglingLine getMatchingDanglingLine(DanglingLine dl1, Multimap<String, DanglingLine> danglingLinesByXnodeCode) {
-        Xnode xnodExtension = dl1.getExtension(Xnode.class);
-        if (xnodExtension == null) {
-            throw new UcteException("Dangling line " + dl1.getNameOrId() + " doesn't have the Xnode extension");
-        }
-        String otherXnodeCode = xnodExtension.getCode();
-        List<DanglingLine> matchingDanglingLines = danglingLinesByXnodeCode.get(otherXnodeCode)
+    private static DanglingLine getMatchingDanglingLine(DanglingLine dl1, Map<String, List<DanglingLine>> danglingLinesByPairingKey) {
+        String otherPairingKey = dl1.getPairingKey();
+        List<DanglingLine> matchingDanglingLines = danglingLinesByPairingKey.get(otherPairingKey)
                 .stream().filter(dl -> dl != dl1)
-                .collect(Collectors.toList());
+                .toList();
         if (matchingDanglingLines.isEmpty()) {
             return null;
         } else if (matchingDanglingLines.size() == 1) {
@@ -771,30 +813,30 @@ public class UcteImporter implements Importer {
             }
             List<DanglingLine> connectedMatchingDanglingLines = matchingDanglingLines.stream()
                     .filter(dl -> dl.getTerminal().isConnected())
-                    .collect(Collectors.toList());
+                    .toList();
             if (connectedMatchingDanglingLines.isEmpty()) {
                 return null;
             }
             if (connectedMatchingDanglingLines.size() == 1) {
                 return connectedMatchingDanglingLines.get(0);
             } else {
-                throw new UcteException("More that 2 connected dangling lines have the same XNODE " + dl1.getUcteXnodeCode());
+                throw new UcteException("More that 2 connected dangling lines have the same pairing key " + dl1.getPairingKey());
             }
         }
     }
 
-    private static void addElementNameProperty(TieLine tieLine, DanglingLine dl1, DanglingLine dl2) {
+    private static void addElementNameProperty(Map<String, String> properties, DanglingLine dl1, DanglingLine dl2) {
         if (dl1.hasProperty(ELEMENT_NAME_PROPERTY_KEY)) {
-            tieLine.setProperty(ELEMENT_NAME_PROPERTY_KEY + "_1", dl1.getProperty(ELEMENT_NAME_PROPERTY_KEY));
+            properties.put(ELEMENT_NAME_PROPERTY_KEY + "_1", dl1.getProperty(ELEMENT_NAME_PROPERTY_KEY));
         }
 
         if (dl2.hasProperty(ELEMENT_NAME_PROPERTY_KEY)) {
-            tieLine.setProperty(ELEMENT_NAME_PROPERTY_KEY + "_2", dl2.getProperty(ELEMENT_NAME_PROPERTY_KEY));
+            properties.put(ELEMENT_NAME_PROPERTY_KEY + "_2", dl2.getProperty(ELEMENT_NAME_PROPERTY_KEY));
         }
     }
 
-    private static void addElementNameProperty(UcteElement ucteElement, Identifiable identifiable) {
-        if (ucteElement.getElementName() != null) {
+    private static void addElementNameProperty(UcteElement ucteElement, Identifiable<?> identifiable) {
+        if (ucteElement.getElementName() != null && !ucteElement.getElementName().isEmpty()) {
             identifiable.setProperty(ELEMENT_NAME_PROPERTY_KEY, ucteElement.getElementName());
         }
     }
@@ -805,18 +847,18 @@ public class UcteImporter implements Importer {
         }
     }
 
-    private static void addGeographicalNameProperty(UcteNode ucteNode, Identifiable identifiable) {
+    private static void addGeographicalNameProperty(UcteNode ucteNode, Identifiable<?> identifiable) {
         if (ucteNode.getGeographicalName() != null) {
             identifiable.setProperty(GEOGRAPHICAL_NAME_PROPERTY_KEY, ucteNode.getGeographicalName());
         }
     }
 
-    private static void addGeographicalNameProperty(UcteNetwork ucteNetwork, TieLine tieLine, DanglingLine dl1, DanglingLine dl2) {
-        Optional<UcteNodeCode> optUcteNodeCode = UcteNodeCode.parseUcteNodeCode(dl1.getUcteXnodeCode());
+    private static void addGeographicalNameProperty(UcteNetwork ucteNetwork, Map<String, String> properties, DanglingLine dl1) {
+        Optional<UcteNodeCode> optUcteNodeCode = UcteNodeCode.parseUcteNodeCode(dl1.getPairingKey());
 
         if (optUcteNodeCode.isPresent()) {
             UcteNode ucteNode = ucteNetwork.getNode(optUcteNodeCode.get());
-            tieLine.setProperty(GEOGRAPHICAL_NAME_PROPERTY_KEY, ucteNode.getGeographicalName());
+            properties.put(GEOGRAPHICAL_NAME_PROPERTY_KEY, ucteNode.getGeographicalName());
         } else {
             throw new UcteException(NOT_POSSIBLE_TO_IMPORT);
         }
@@ -833,24 +875,24 @@ public class UcteImporter implements Importer {
         }
     }
 
-    private static void addXnodeStatusProperty(UcteNode ucteNode, Identifiable identifiable) {
-        identifiable.setProperty(STATUS_PROPERTY_KEY + "_XNode", ucteNode.getStatus().toString());
+    private static void addXnodeStatusProperty(UcteNode ucteNode, Identifiable<?> identifiable) {
+        identifiable.setProperty(STATUS_PROPERTY_KEY + X_NODE, ucteNode.getStatus().toString());
     }
 
-    private static void addXnodeStatusProperty(TieLine tieLine, DanglingLine danglingLine) {
-        tieLine.setProperty(STATUS_PROPERTY_KEY + "_XNode", danglingLine.getProperty(STATUS_PROPERTY_KEY + "_XNode"));
+    private static void addXnodeStatusProperty(Map<String, String> properties, DanglingLine danglingLine) {
+        properties.put(STATUS_PROPERTY_KEY + X_NODE, danglingLine.getProperty(STATUS_PROPERTY_KEY + X_NODE));
     }
 
     private static void addDanglingLineCouplerProperty(UcteLine ucteLine, DanglingLine danglingLine) {
         switch (ucteLine.getStatus()) {
-            case BUSBAR_COUPLER_IN_OPERATION:
-            case BUSBAR_COUPLER_OUT_OF_OPERATION:
+            case BUSBAR_COUPLER_IN_OPERATION,
+                 BUSBAR_COUPLER_OUT_OF_OPERATION:
                 danglingLine.setProperty(IS_COUPLER_PROPERTY_KEY, "true");
                 break;
-            case REAL_ELEMENT_IN_OPERATION:
-            case REAL_ELEMENT_OUT_OF_OPERATION:
-            case EQUIVALENT_ELEMENT_IN_OPERATION:
-            case EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
+            case REAL_ELEMENT_IN_OPERATION,
+                 REAL_ELEMENT_OUT_OF_OPERATION,
+                 EQUIVALENT_ELEMENT_IN_OPERATION,
+                 EQUIVALENT_ELEMENT_OUT_OF_OPERATION:
                 danglingLine.setProperty(IS_COUPLER_PROPERTY_KEY, "false");
                 break;
         }
@@ -862,13 +904,23 @@ public class UcteImporter implements Importer {
     }
 
     @Override
+    public List<String> getSupportedExtensions() {
+        return Arrays.asList(EXTENSIONS);
+    }
+
+    @Override
     public String getComment() {
         return "UCTE-DEF";
     }
 
+    @Override
+    public List<Parameter> getParameters() {
+        return ConfiguredParameter.load(PARAMETERS, getFormat(), defaultValueConfig);
+    }
+
     private String findExtension(ReadOnlyDataSource dataSource, boolean throwException) throws IOException {
         for (String ext : EXTENSIONS) {
-            if (dataSource.exists(null, ext)) {
+            if (dataSource.isDataExtension(ext) && dataSource.exists(null, ext)) {
                 return ext;
             }
         }
@@ -894,16 +946,16 @@ public class UcteImporter implements Importer {
         }
     }
 
-    private void mergeXnodeDanglingLines(UcteNetwork ucteNetwork, Network network) {
-        Multimap<String, DanglingLine> danglingLinesByXnodeCode = HashMultimap.create();
-        for (DanglingLine dl : network.getDanglingLines()) {
-            danglingLinesByXnodeCode.put(dl.getExtension(Xnode.class).getCode(), dl);
+    private static void mergeDanglingLines(UcteNetwork ucteNetwork, Network network) {
+        Map<String, List<DanglingLine>> danglingLinesByPairingKey = new HashMap<>();
+        for (DanglingLine dl : network.getDanglingLines(DanglingLineFilter.ALL)) {
+            danglingLinesByPairingKey.computeIfAbsent(dl.getPairingKey(), code -> new ArrayList<>()).add(dl);
         }
 
-        Set<DanglingLine> danglingLinesToProcess = Sets.newHashSet(network.getDanglingLines());
+        Set<DanglingLine> danglingLinesToProcess = Sets.newHashSet(network.getDanglingLines(DanglingLineFilter.ALL));
         while (!danglingLinesToProcess.isEmpty()) {
             DanglingLine dlToProcess = danglingLinesToProcess.iterator().next();
-            DanglingLine dlMatchingDlToProcess = getMatchingDanglingLine(dlToProcess, danglingLinesByXnodeCode);
+            DanglingLine dlMatchingDlToProcess = getMatchingDanglingLine(dlToProcess, danglingLinesByPairingKey);
 
             if (dlMatchingDlToProcess != null) {
                 // lexical sort to always end up with same merge line id
@@ -913,88 +965,28 @@ public class UcteImporter implements Importer {
 
                 createTieLine(ucteNetwork, network, dlAtSideOne, dlAtSideTwo);
 
-                dlToProcess.remove();
-                dlMatchingDlToProcess.remove();
-
                 danglingLinesToProcess.remove(dlMatchingDlToProcess);
             }
             danglingLinesToProcess.remove(dlToProcess);
         }
     }
 
-    private void createTieLine(UcteNetwork ucteNetwork, Network network, DanglingLine dlAtSideOne, DanglingLine dlAtSideTwo) {
+    private static void createTieLine(UcteNetwork ucteNetwork, Network network, DanglingLine dlAtSideOne, DanglingLine dlAtSideTwo) {
         // lexical sort to always end up with same merge line id
         String mergeLineId = dlAtSideOne.getId() + " + " + dlAtSideTwo.getId();
 
-        // create XNODE merge extension
-        // In case R1 and R2 (resp. X1 and X2) are zero, rdp (resp. xdp) is set to 0.5:
-        // by default the line is split in the middle.
-        // R1 = 0 and R2 = 0 (resp. X1 = 0 and X2 = 0) are recovered when splitting the mergedXnode anyway.
-        double sumR = dlAtSideOne.getR() + dlAtSideTwo.getR();
-        double sumX = dlAtSideOne.getX() + dlAtSideTwo.getX();
-        double rdp = (sumR == 0.) ? 0.5 : dlAtSideOne.getR() / sumR;
-        double xdp = (sumX == 0.) ? 0.5 : dlAtSideOne.getX() / sumX;
-        String xnodeCode = dlAtSideOne.getExtension(Xnode.class).getCode();
-
         TieLine mergeLine = network.newTieLine()
                 .setId(mergeLineId)
-                .setVoltageLevel1(dlAtSideOne.getTerminal().getVoltageLevel().getId())
-                .setConnectableBus1(getBusId(dlAtSideOne.getTerminal().getBusBreakerView().getConnectableBus()))
-                .setBus1(getBusId(dlAtSideOne.getTerminal().getBusBreakerView().getBus()))
-                .setVoltageLevel2(dlAtSideTwo.getTerminal().getVoltageLevel().getId())
-                .setConnectableBus2(getBusId(dlAtSideTwo.getTerminal().getBusBreakerView().getConnectableBus()))
-                .setBus2(getBusId(dlAtSideTwo.getTerminal().getBusBreakerView().getBus()))
-                .newHalfLine1()
-                .setId(dlAtSideOne.getId())
-                .setR(dlAtSideOne.getR())
-                .setX(dlAtSideOne.getX())
-                .setB1(dlAtSideOne.getB())
-                .setB2(0.0)
-                .setG1(dlAtSideOne.getG())
-                .setG2(0.0)
-                .setFictitious(dlAtSideOne.isFictitious())
-                .add()
-                .newHalfLine2()
-                .setId(dlAtSideTwo.getId())
-                .setR(dlAtSideTwo.getR())
-                .setX(dlAtSideTwo.getX())
-                .setB1(0.0)
-                .setB2(dlAtSideTwo.getB())
-                .setG1(0.0)
-                .setG2(dlAtSideTwo.getG())
-                .setFictitious(dlAtSideTwo.isFictitious())
-                .add()
-                .setUcteXnodeCode(xnodeCode)
+                .setDanglingLine1(dlAtSideOne.getId())
+                .setDanglingLine2(dlAtSideTwo.getId())
                 .add();
 
-        addElementNameProperty(mergeLine, dlAtSideOne, dlAtSideTwo);
-        addGeographicalNameProperty(ucteNetwork, mergeLine, dlAtSideOne, dlAtSideTwo);
-        addXnodeStatusProperty(mergeLine, dlAtSideOne);
+        Map<String, String> properties = new HashMap<>();
+        addElementNameProperty(properties, dlAtSideOne, dlAtSideTwo);
+        addGeographicalNameProperty(ucteNetwork, properties, dlAtSideOne);
+        addXnodeStatusProperty(properties, dlAtSideOne);
 
-        if (dlAtSideOne.getCurrentLimits() != null) {
-            mergeLine.newCurrentLimits1()
-                    .setPermanentLimit(dlAtSideOne.getCurrentLimits().getPermanentLimit()).add();
-        }
-        if (dlAtSideTwo.getCurrentLimits() != null) {
-            mergeLine.newCurrentLimits2()
-                    .setPermanentLimit(dlAtSideTwo.getCurrentLimits().getPermanentLimit()).add();
-        }
-        double b1dp = dlAtSideOne.getB() == 0 ? 0.5 : 1;
-        double g1dp = dlAtSideOne.getG() == 0 ? 0.5 : 1;
-        double b2dp = dlAtSideTwo.getB() == 0 ? 0.5 : 0;
-        double g2dp = dlAtSideTwo.getG() == 0 ? 0.5 : 0;
-        mergeLine.newExtension(MergedXnodeAdder.class)
-                .withRdp(rdp).withXdp(xdp)
-                .withLine1Name(dlAtSideOne.getId())
-                .withLine1Fictitious(dlAtSideOne.isFictitious())
-                .withB1dp(b1dp)
-                .withG1dp(g1dp)
-                .withLine2Name(dlAtSideTwo.getId())
-                .withLine2Fictitious(dlAtSideTwo.isFictitious())
-                .withB2dp(b2dp)
-                .withG2dp(g2dp)
-                .withCode(xnodeCode)
-                .add();
+        properties.forEach(mergeLine::setProperty);
     }
 
     @Override
@@ -1013,14 +1005,18 @@ public class UcteImporter implements Importer {
     }
 
     @Override
-    public Network importData(ReadOnlyDataSource dataSource, NetworkFactory networkFactory, Properties parameters, Reporter reporter) {
+    public Network importData(ReadOnlyDataSource dataSource, NetworkFactory networkFactory, Properties parameters, ReportNode reportNode) {
         try {
             String ext = findExtension(dataSource, true);
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(dataSource.newInputStream(null, ext)))) {
 
                 Stopwatch stopwatch = Stopwatch.createStarted();
 
-                UcteNetworkExt ucteNetwork = new UcteNetworkExt(new UcteReader().read(reader, reporter), LINE_MIN_Z);
+                boolean combinePhaseAngleRegulation = Parameter.readBoolean(getFormat(), parameters, COMBINE_PHASE_ANGLE_REGULATION_PARAMETER, defaultValueConfig);
+                boolean createAreas = Parameter.readBoolean(getFormat(), parameters, CREATE_AREAS_PARAMETER, defaultValueConfig);
+                Set<String> areaDcXnodes = Parameter.readStringList(getFormat(), parameters, AREAS_DC_XNODES_PARAMETER, defaultValueConfig).stream().collect(Collectors.toUnmodifiableSet());
+
+                UcteNetworkExt ucteNetwork = new UcteNetworkExt(new UcteReader().read(reader, reportNode), LINE_MIN_Z);
                 String fileName = dataSource.getBaseName();
 
                 EntsoeFileName ucteFileName = EntsoeFileName.parse(fileName);
@@ -1031,9 +1027,13 @@ public class UcteImporter implements Importer {
 
                 createBuses(ucteNetwork, network);
                 createLines(ucteNetwork, network);
-                createTransformers(ucteNetwork, network, ucteFileName);
+                createTransformers(ucteNetwork, network, ucteFileName, combinePhaseAngleRegulation);
 
-                mergeXnodeDanglingLines(ucteNetwork, network);
+                mergeDanglingLines(ucteNetwork, network);
+
+                if (createAreas) {
+                    createAreas(network, areaDcXnodes);
+                }
 
                 stopwatch.stop();
 
@@ -1044,6 +1044,18 @@ public class UcteImporter implements Importer {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static void createAreas(Network network, Set<String> areaDcXnodes) {
+        Map<Country, Area> countryArea = new EnumMap<>(Country.class);
+        network.getSubstationStream().forEach(substation -> {
+            var country = substation.getCountry().orElseThrow(() -> new IllegalStateException("No country set for substation '" + substation.getId() + "'"));
+            Area area = countryArea.computeIfAbsent(country, k -> network.newArea().setAreaType("ControlArea").setId(country.toString()).add());
+            substation.getVoltageLevelStream().forEach(vl -> {
+                area.addVoltageLevel(vl);
+                vl.getDanglingLines().forEach(dl -> area.newAreaBoundary().setBoundary(dl.getBoundary()).setAc(!areaDcXnodes.contains(dl.getPairingKey())).add());
+            });
+        });
     }
 
 }

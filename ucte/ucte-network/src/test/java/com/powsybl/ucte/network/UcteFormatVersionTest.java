@@ -3,21 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class UcteFormatVersionTest {
+class UcteFormatVersionTest {
 
     @Test
-    public void test() {
+    void test() {
         String[] dates = {"2003.09.01", "2007.05.01"};
 
         assertEquals(2, UcteFormatVersion.values().length);
@@ -30,8 +30,8 @@ public class UcteFormatVersionTest {
         assertNull(UcteFormatVersion.findByDate(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testUnknownFormatVersion() {
-        UcteFormatVersion.findByDate("1970.01.01");
+    @Test
+    void testUnknownFormatVersion() {
+        assertThrows(IllegalArgumentException.class, () -> UcteFormatVersion.findByDate("1970.01.01"));
     }
 }

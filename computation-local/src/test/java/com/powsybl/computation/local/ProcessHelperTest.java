@@ -3,31 +3,32 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation.local;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.*;
 
 /**
- * @author Yichen TANG <yichen.tang at rte-france.com>
+ * @author Yichen TANG {@literal <yichen.tang at rte-france.com>}
  */
-public class ProcessHelperTest {
+class ProcessHelperTest {
 
     private InputStream in;
     private OutputStream out;
     private InputStream err;
     private Process process;
 
-    @Before
-    public void setup() {
+    @BeforeEach
+    void setup() {
         in = mock(InputStream.class);
         out = mock(OutputStream.class);
         err = mock(InputStream.class);
@@ -38,7 +39,7 @@ public class ProcessHelperTest {
     }
 
     @Test
-    public void testIllegalTimeout() {
+    void testIllegalTimeout() {
         try {
             int exitCode = ProcessHelper.runWithTimeout(-1, process);
             fail();
@@ -48,7 +49,7 @@ public class ProcessHelperTest {
     }
 
     @Test
-    public void testWithTimeout() {
+    void testWithTimeout() {
         try {
             // process finishes in 1 second
             when(process.exitValue()).thenThrow(new IllegalThreadStateException())
@@ -67,7 +68,7 @@ public class ProcessHelperTest {
     }
 
     @Test
-    public void testTimeouted() {
+    void testTimeouted() {
         try {
             // process never finish
             when(process.exitValue()).thenThrow(new IllegalThreadStateException());

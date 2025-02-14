@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
@@ -20,14 +21,14 @@ import com.powsybl.triplestore.api.PropertyBags;
 import java.util.Comparator;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class ShuntConversion extends AbstractConductingEquipmentConversion {
 
     private static final String SECTION_NUMBER = "sectionNumber";
 
     public ShuntConversion(PropertyBag sh, Context context) {
-        super("ShuntCompensator", sh, context);
+        super(CgmesNames.SHUNT_COMPENSATOR, sh, context);
     }
 
     private int getSections(PropertyBag p, int normalSections) {
@@ -60,7 +61,7 @@ public class ShuntConversion extends AbstractConductingEquipmentConversion {
                     .add();
         } else if ("NonlinearShuntCompensator".equals(shuntType)) {
             ShuntCompensatorNonLinearModelAdder modelAdder = adder.newNonLinearModel();
-            PropertyBags ss = context.cgmes().nonlinearShuntCompensatorPoints(id);
+            PropertyBags ss = context.nonlinearShuntCompensatorPoints(id);
             ss.stream()
                     .filter(s -> s.asInt(SECTION_NUMBER) > 0)
                     .sorted(Comparator.comparing(s -> s.asInt(SECTION_NUMBER)))
@@ -73,22 +74,14 @@ public class ShuntConversion extends AbstractConductingEquipmentConversion {
                     });
             modelAdder.add();
         } else {
-            throw new AssertionError("Unexpected shunt type: " + shuntType);
+            throw new IllegalStateException("Unexpected shunt type: " + shuntType);
         }
         identify(adder);
         connect(adder);
         ShuntCompensator shunt = adder.add();
         addAliasesAndProperties(shunt);
 
-        // At a shunt terminal, only Q can be set
         PowerFlow f = powerFlowSV();
-        if (f.defined()) {
-            double q = f.q();
-            if (context.config().changeSignForShuntReactivePowerFlowInitialState()) {
-                q = -q;
-            }
-            f = new PowerFlow(Double.NaN, q);
-        }
         context.convertedTerminal(terminalId(), shunt.getTerminal(), 1, f);
         context.regulatingControlMapping().forShuntCompensators().add(shunt.getId(), p);
     }

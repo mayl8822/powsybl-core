@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.hvdc;
@@ -13,21 +14,22 @@ import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.conversion.Conversion;
 import com.powsybl.cgmes.conversion.RegulatingControlMappingForVscConverters;
 import com.powsybl.cgmes.conversion.elements.AbstractReactiveLimitsOwnerConversion;
+import com.powsybl.cgmes.model.CgmesNames;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.HvdcConverterStation.HvdcType;
 import com.powsybl.triplestore.api.PropertyBag;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 public class AcDcConverterConversion extends AbstractReactiveLimitsOwnerConversion {
 
     private static final double DEFAULT_POWER_FACTOR = 0.8;
 
-    public AcDcConverterConversion(PropertyBag c, HvdcType converterType, double lossFactor, String acDcConverterDcTerminalId,  Context context) {
-        super("ACDCConverter", c, context);
+    public AcDcConverterConversion(PropertyBag c, HvdcType converterType, double lossFactor, String acDcConverterDcTerminalId, Context context) {
+        super(CgmesNames.ACDC_CONVERTER, c, context);
 
         this.converterType = Objects.requireNonNull(converterType);
         this.lossFactor = lossFactor;

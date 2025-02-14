@@ -3,23 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.sensitivity;
 
+import com.google.common.collect.Lists;
 import com.powsybl.commons.Versionable;
 import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.config.PlatformConfigNamedProvider;
 import com.powsybl.commons.extensions.Extension;
 import com.powsybl.commons.extensions.ExtensionJsonSerializer;
-import com.powsybl.commons.reporter.Reporter;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Network;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -40,6 +39,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface SensitivityAnalysisProvider extends Versionable, PlatformConfigNamedProvider {
 
+    static List<SensitivityAnalysisProvider> findAll() {
+        return Lists.newArrayList(ServiceLoader.load(SensitivityAnalysisProvider.class, SensitivityAnalysisProvider.class.getClassLoader()));
+    }
+
     /**
      * Run a single sensitivity analysis.
      * Factors are given by a {@code factorReader} on the {@code workingVariantId} of the {@code network}
@@ -49,23 +52,23 @@ public interface SensitivityAnalysisProvider extends Versionable, PlatformConfig
      * @param network IIDM network on which the sensitivity analysis will be performed
      * @param workingVariantId network variant ID on which the analysis will be performed
      * @param factorReader provider of sensitivity factors to be computed
-     * @param valueWriter provider of sensitivity values results
+     * @param resultWriter provider of sensitivity results
      * @param contingencies list of contingencies after which sensitivity factors will be computed
      * @param variableSets list of variableSets
      * @param parameters specific sensitivity analysis parameters
      * @param computationManager a computation manager to external program execution
-     * @param reporter a reporter for functional logs
+     * @param reportNode a reportNode for functional logs
      * @return a {@link CompletableFuture} on {@link SensitivityAnalysisResult} that gathers sensitivity factor values
      */
     CompletableFuture<Void> run(Network network,
                                 String workingVariantId,
                                 SensitivityFactorReader factorReader,
-                                SensitivityValueWriter valueWriter,
+                                SensitivityResultWriter resultWriter,
                                 List<Contingency> contingencies,
                                 List<SensitivityVariableSet> variableSets,
                                 SensitivityAnalysisParameters parameters,
                                 ComputationManager computationManager,
-                                Reporter reporter);
+                                ReportNode reportNode);
 
     /**
      * The serializer for implementation-specific parameters, or {@link Optional#empty()} if the implementation

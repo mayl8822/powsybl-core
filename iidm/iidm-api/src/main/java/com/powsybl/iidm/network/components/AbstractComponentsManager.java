@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.iidm.network.components;
@@ -17,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
 abstract class AbstractComponentsManager<C extends Component> {
 
@@ -101,6 +102,11 @@ abstract class AbstractComponentsManager<C extends Component> {
         for (Line line : getNetwork().getLines()) {
             Bus bus1 = line.getTerminal1().getBusView().getBus();
             Bus bus2 = line.getTerminal2().getBusView().getBus();
+            addToAdjacencyList(bus1, bus2, id2num, adjacencyList);
+        }
+        for (TieLine tl : getNetwork().getTieLines()) {
+            Bus bus1 = tl.getDanglingLine1().getTerminal().getBusView().getBus();
+            Bus bus2 = tl.getDanglingLine2().getTerminal().getBusView().getBus();
             addToAdjacencyList(bus1, bus2, id2num, adjacencyList);
         }
         for (TwoWindingsTransformer transfo : getNetwork().getTwoWindingsTransformers()) {

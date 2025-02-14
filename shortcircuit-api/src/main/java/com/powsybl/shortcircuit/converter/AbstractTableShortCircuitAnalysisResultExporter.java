@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.shortcircuit.converter;
 
@@ -14,6 +15,8 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.security.LimitViolation;
 import com.powsybl.security.LimitViolationHelper;
 import com.powsybl.shortcircuit.FaultResult;
+import com.powsybl.shortcircuit.FortescueFaultResult;
+import com.powsybl.shortcircuit.MagnitudeFaultResult;
 import com.powsybl.shortcircuit.ShortCircuitAnalysisResult;
 
 import java.io.IOException;
@@ -51,8 +54,14 @@ public abstract class AbstractTableShortCircuitAnalysisResultExporter implements
         try (TableFormatter formatter = formatterFactory.create(writer, "Short circuit analysis", formatterConfig,
                 new Column("ID"), new Column("Three Phase Fault Current"))) {
             for (FaultResult action : result.getFaultResults()) {
-                formatter.writeCell(action.getFault().getElementId())
-                        .writeCell(action.getThreePhaseFaultCurrent());
+                if (action instanceof FortescueFaultResult fortescueFaultResult) {
+                    formatter.writeCell(action.getFault().getElementId())
+                            .writeCell(fortescueFaultResult.getCurrent().getPositiveMagnitude());
+                } else {
+                    formatter.writeCell(action.getFault().getElementId())
+                            .writeCell(((MagnitudeFaultResult) action).getCurrent());
+                }
+
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);

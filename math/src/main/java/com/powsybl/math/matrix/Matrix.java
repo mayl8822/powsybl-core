@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.math.matrix;
 
@@ -15,7 +16,7 @@ import java.util.Objects;
  * sparse matrix implementations. In the case of sparse matrix additional usage constraint could be added and specified
  * in the javadoc for instance in the order a matrix has to be filled.
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public interface Matrix {
 
@@ -91,7 +92,7 @@ public interface Matrix {
         /**
          * @deprecated Use {@link #onElement(int, int, double)} instead.
          */
-        @Deprecated
+        @Deprecated(since = "2.5.0")
         default void onValue(int i, int j, double value) {
             onElement(i, j, value);
         }
@@ -107,7 +108,7 @@ public interface Matrix {
     /**
      * @deprecated Use {@link #getRowCount()} instead.
      */
-    @Deprecated
+    @Deprecated(since = "2.5.0")
     default int getM() {
         return getRowCount();
     }
@@ -122,7 +123,7 @@ public interface Matrix {
     /**
      * @deprecated Use {@link #getColumnCount()} instead.
      */
-    @Deprecated
+    @Deprecated(since = "2.5.0")
     default int getN() {
         return getColumnCount();
     }
@@ -139,7 +140,7 @@ public interface Matrix {
     /**
      * @deprecated Use {@link #set(int, int, double)} instead.
      */
-    @Deprecated
+    @Deprecated(since = "2.5.0")
     default void setValue(int i, int j, double value) {
         set(i, j, value);
     }
@@ -208,7 +209,7 @@ public interface Matrix {
     /**
      * @deprecated Use {@link #add(int, int, double)} instead.
      */
-    @Deprecated
+    @Deprecated(since = "2.5.0")
     default void addValue(int i, int j, double value) {
         add(i, j, value);
     }
@@ -226,7 +227,17 @@ public interface Matrix {
     LUDecomposition decomposeLU();
 
     /**
-     * Multiply the matrix by another one (this*other). The resulting matrix has the same implementation as
+     * Multiply the matrix by another one and by a scalar (this*other*scalar). The resulting matrix has the same implementation as
+     * this matrix.
+     *
+     * @param other the other matrix
+     * @param scalar a scalar to multiply the result matrix
+     * @return the result of the multiplication of this matrix by the other one
+     */
+    Matrix times(Matrix other, double scalar);
+
+    /**
+     * Multiply the matrix by another one. The resulting matrix has the same implementation as
      * this matrix.
      *
      * @param other the other matrix

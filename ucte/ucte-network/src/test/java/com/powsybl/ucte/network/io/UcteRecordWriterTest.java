@@ -3,238 +3,112 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network.io;
 
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey at rte-france.com>}
  */
-public class UcteRecordWriterTest {
+class UcteRecordWriterTest {
 
-    @Test
-    public void shouldWriteZeroPaddedPositiveDouble() throws IOException {
+    private static Stream<Arguments> provideDoubleArguments() {
+        return Stream.of(
+            Arguments.of(3.14, "3.1400%n"),
+            Arguments.of(3.1415927, "3.1415%n"),
+            Arguments.of(-3.1, "-3.100%n"),
+            Arguments.of(0.0001, "0.0001%n"),
+            Arguments.of(999999.9, "999999%n"),
+            Arguments.of(-99999.9, "-99999%n"),
+            Arguments.of(-Double.NaN, "%n")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDoubleArguments")
+    void shouldWriteDoubleTests(double value, String expected) throws IOException {
         StringWriter writer = new StringWriter();
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
         UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
 
-        double input = 3.14;
-        recordWriter.writeDouble(input, 0, 6);
+        recordWriter.writeDouble(value, 0, 6);
         recordWriter.newLine();
         bufferedWriter.close();
 
-        assertEquals(String.format("3.1400%n"), writer.toString());
+        assertEquals(String.format(expected), writer.toString());
     }
 
-    @Test
-    public void shouldWriteShrinkedPositiveDouble() throws IOException {
+    private static Stream<Arguments> provideDoubleForFailingWriting() {
+        return Stream.of(
+            Arguments.of(12345678),
+            Arguments.of(-12345678),
+            Arguments.of(1000000.1),
+            Arguments.of(-100000.1)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideDoubleForFailingWriting")
+    void shouldFailWriteDoubleTests(double value) throws IOException {
         StringWriter writer = new StringWriter();
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
         UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
 
-        double input = 3.1415927;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("3.1415%n"), writer.toString());
-    }
-
-    @Test
-    public void shouldWriteZeroPaddedNegativeDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = -3.1;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("-3.100%n"), writer.toString());
-    }
-
-    @Test
-    public void shouldNotUseScientificNotationForSmallDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = 0.0001;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("0.0001%n"), writer.toString());
-    }
-
-    @Test
-    public void shouldReturnEmptyValueOnNanInput() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = Double.NaN;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("%n"), writer.toString());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnBigPositiveDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = 12345678;
-        recordWriter.writeDouble(input, 0, 6);
+        assertThrows(IllegalArgumentException.class, () -> recordWriter.writeDouble(value, 0, 6));
         recordWriter.newLine();
         bufferedWriter.close();
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnBigNegativeDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = -12345678;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
+    private static Stream<Arguments> provideIntArguments() {
+        return Stream.of(
+            Arguments.of(999999, "999999%n"),
+            Arguments.of(-99999, "-99999%n")
+        );
     }
 
-    @Test
-    public void shouldSucceedOnLimitBigPositiveDouble() throws IOException {
+    @ParameterizedTest
+    @MethodSource("provideIntArguments")
+    void shouldWriteIntTests(int value, String expected) throws IOException {
         StringWriter writer = new StringWriter();
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
         UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
 
-        double input = 999999.9;
-        recordWriter.writeDouble(input, 0, 6);
+        recordWriter.writeInteger(value, 0, 6);
         recordWriter.newLine();
         bufferedWriter.close();
 
-        assertEquals(String.format("999999%n"), writer.toString());
+        assertEquals(String.format(expected), writer.toString());
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnLimitBigPositiveDouble() throws IOException {
+    private static Stream<Arguments> provideIntForFailingWriting() {
+        return Stream.of(
+            Arguments.of(12345678),
+            Arguments.of(-12345678),
+            Arguments.of(1000000),
+            Arguments.of(-100000)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideIntForFailingWriting")
+    void shouldFailWriteIntTests(int value) throws IOException {
         StringWriter writer = new StringWriter();
         BufferedWriter bufferedWriter = new BufferedWriter(writer);
         UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
 
-        double input = 1000000.1;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-    }
-
-    @Test
-    public void shouldSucceedOnLimitBigNegativeDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = -99999.9;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("-99999%n"), writer.toString());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnLimitBigNegativeDouble() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        double input = -100000.1;
-        recordWriter.writeDouble(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnBigPositiveInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = 12345678;
-        recordWriter.writeInteger(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnBigNegativeInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = -12345678;
-        recordWriter.writeInteger(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-    }
-
-    @Test
-    public void shouldSucceedOnLimitBigPositiveInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = 999999;
-        recordWriter.writeInteger(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("999999%n"), writer.toString());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnLimitBigPositiveInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = 1000000;
-        recordWriter.writeInteger(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-    }
-
-    @Test
-    public void shouldSucceedOnLimitBigNegativeInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = -99999;
-        recordWriter.writeInteger(input, 0, 6);
-        recordWriter.newLine();
-        bufferedWriter.close();
-
-        assertEquals(String.format("-99999%n"), writer.toString());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldFailOnLimitBigNegativeInteger() throws IOException {
-        StringWriter writer = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(writer);
-        UcteRecordWriter recordWriter = new UcteRecordWriter(bufferedWriter);
-
-        int input = -100000;
-        recordWriter.writeInteger(input, 0, 6);
+        assertThrows(IllegalArgumentException.class, () -> recordWriter.writeInteger(value, 0, 6));
         recordWriter.newLine();
         bufferedWriter.close();
     }

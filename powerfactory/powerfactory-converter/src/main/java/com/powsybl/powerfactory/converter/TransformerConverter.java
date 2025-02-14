@@ -3,23 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.powerfactory.converter;
 
-import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.ThreeWindingsTransformer.Leg;
+import com.powsybl.iidm.network.extensions.ThreeWindingsTransformerPhaseAngleClockAdder;
+import com.powsybl.iidm.network.extensions.TwoWindingsTransformerPhaseAngleClockAdder;
 import com.powsybl.powerfactory.converter.PowerFactoryImporter.ImportContext;
-import com.powsybl.powerfactory.converter.PowerFactoryImporter.NodeRef;
 import com.powsybl.powerfactory.model.DataObject;
+import com.powsybl.powerfactory.model.PowerFactoryException;
+
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.linear.RealMatrix;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 
 class TransformerConverter extends AbstractConverter {
@@ -76,6 +81,10 @@ class TransformerConverter extends AbstractConverter {
             .add();
 
         tc.ifPresent(t -> tapChangerToIidm(t, t2wt));
+
+        Optional<PhaseAngleClockModel> pacModel = PhaseAngleClockModel.create(typTr2);
+        pacModel.ifPresent(phaseAngleClockModel -> t2wt.newExtension(TwoWindingsTransformerPhaseAngleClockAdder.class)
+            .withPhaseAngleClock(phaseAngleClockModel.pac).add());
     }
 
     void createThreeWindings(DataObject elmTr3) {
@@ -102,8 +111,7 @@ class TransformerConverter extends AbstractConverter {
         List<WindingType> windingTypeEnds = createWindingTypeEnds(vl1, vl2, vl3);
 
         double vn0 = 1.0;
-        double ratedU0 = vn0;
-        Rated3WModel rated3WModel = Rated3WModel.create(typTr3, ratedU0);
+        Rated3WModel rated3WModel = Rated3WModel.create(typTr3, vn0);
         RatedModel ratedModel1 = rated3WModel.getEnd(windingTypeEnds.get(0));
         RatedModel ratedModel2 = rated3WModel.getEnd(windingTypeEnds.get(1));
         RatedModel ratedModel3 = rated3WModel.getEnd(windingTypeEnds.get(2));
@@ -118,7 +126,7 @@ class TransformerConverter extends AbstractConverter {
 
         Substation substation = vl1.getSubstation().orElseThrow();
         ThreeWindingsTransformerAdder adder = substation.newThreeWindingsTransformer()
-            .setRatedU0(ratedU0)
+            .setRatedU0(vn0)
             .setEnsureIdUnicity(true)
             .setId(elmTr3.getLocName())
             .newLeg1()
@@ -163,6 +171,15 @@ class TransformerConverter extends AbstractConverter {
         tc1.ifPresent(tc -> tapChangerToIidm(tc, t3wt.getLeg1()));
         tc2.ifPresent(tc -> tapChangerToIidm(tc, t3wt.getLeg2()));
         tc3.ifPresent(tc -> tapChangerToIidm(tc, t3wt.getLeg3()));
+
+        PhaseAngleClock3WModel pac3WModel = PhaseAngleClock3WModel.create(typTr3);
+        Optional<PhaseAngleClockModel> pac2 = pac3WModel.getEnd(windingTypeEnds.get(1));
+        Optional<PhaseAngleClockModel> pac3 = pac3WModel.getEnd(windingTypeEnds.get(2));
+        if (pac2.isPresent() || pac3.isPresent()) {
+            t3wt.newExtension(ThreeWindingsTransformerPhaseAngleClockAdder.class)
+                .withPhaseAngleClockLeg2(pac2.map(model -> model.pac).orElse(0))
+                .withPhaseAngleClockLeg3(pac3.map(model -> model.pac).orElse(0)).add();
+        }
     }
 
     private static boolean highVoltageAtEnd1(VoltageLevel vl1, VoltageLevel vl2) {
@@ -262,7 +279,7 @@ class TransformerConverter extends AbstractConverter {
             }
         }
 
-        private static Complex createImpedance(String uktrT, String pcutrT, DataObject typTr2,  double ratedApparentPower, double nominalVoltage) {
+        private static Complex createImpedance(String uktrT, String pcutrT, DataObject typTr2, double ratedApparentPower, double nominalVoltage) {
             float uktr = typTr2.getFloatAttributeValue(uktrT);
             float pcutr = typTr2.getFloatAttributeValue(pcutrT);
 
@@ -316,8 +333,8 @@ class TransformerConverter extends AbstractConverter {
 
         /**
          * Create a transformer model from measures.
-         *
-         * shortCircuitVoltage short circuit voltage in %
+         * <p>
+         * shortCircuitVoltage short-circuit voltage in %
          * copperLosses copper loss in KWh
          * openCircuitCurrent open circuit in %
          * coreLosses core (or iron) losses in KWh
@@ -327,10 +344,10 @@ class TransformerConverter extends AbstractConverter {
         static Complex createImpedanceFromMeasures(double shortCircuitVoltage, double copperLosses,
             double ratedApparentPower, double nominalVoltage) {
 
-            // calculate leakage impedance from short circuit measures
+            // calculate leakage impedance from short-circuit measurements
             double zpu = shortCircuitVoltage / 100;
             double rpu = copperLosses / (1000 * ratedApparentPower);
-            double xpu = Math.sqrt(zpu * zpu - rpu * rpu);
+            double xpu = Math.sqrt(zpu * zpu - rpu * rpu) * Math.signum(shortCircuitVoltage);
 
             double r = impedanceFromPerUnitToEngineeringUnits(rpu, nominalVoltage, ratedApparentPower);
             double x = impedanceFromPerUnitToEngineeringUnits(xpu, nominalVoltage, ratedApparentPower);
@@ -459,6 +476,43 @@ class TransformerConverter extends AbstractConverter {
         }
     }
 
+    private static final class PhaseAngleClockModel {
+        private final int pac;
+
+        private PhaseAngleClockModel(int pac) {
+            this.pac = pac;
+        }
+
+        private static Optional<PhaseAngleClockModel> create(DataObject typTr2) {
+            float nt2ag = typTr2.findFloatAttributeValue("nt2ag").orElse(0f);
+            if (nt2ag > 0) {
+                return Optional.of(new PhaseAngleClockModel((int) nt2ag));
+            } else {
+                return Optional.empty();
+            }
+        }
+    }
+
+    private static final class PhaseAngleClock3WModel {
+        private final Map<WindingType, Optional<PhaseAngleClockModel>> phaseAngleClockModels = new EnumMap<>(WindingType.class);
+
+        private Optional<PhaseAngleClockModel> getEnd(WindingType windingType) {
+            return phaseAngleClockModels.get(windingType);
+        }
+
+        private static PhaseAngleClock3WModel create(DataObject typTr3) {
+            float nt3agL = typTr3.findFloatAttributeValue("nt3ag_l").orElse(0f);
+            float nt3agM = typTr3.findFloatAttributeValue("nt3ag_m").orElse(0f);
+            float nt3agH = typTr3.findFloatAttributeValue("nt3ag_h").orElse(0f);
+
+            PhaseAngleClock3WModel phaseAngleClockModel = new PhaseAngleClock3WModel();
+            phaseAngleClockModel.phaseAngleClockModels.put(WindingType.LOW, nt3agL > 0 ? Optional.of(new PhaseAngleClockModel((int) nt3agL)) : Optional.empty());
+            phaseAngleClockModel.phaseAngleClockModels.put(WindingType.MEDIUM, nt3agM > 0 ? Optional.of(new PhaseAngleClockModel((int) nt3agM)) : Optional.empty());
+            phaseAngleClockModel.phaseAngleClockModels.put(WindingType.HIGH, nt3agH > 0 ? Optional.of(new PhaseAngleClockModel((int) nt3agH)) : Optional.empty());
+            return phaseAngleClockModel;
+        }
+    }
+
     private static final class PowerFactoryTapChanger {
         private final int nntap;
         private final int nntap0;
@@ -492,6 +546,8 @@ class TransformerConverter extends AbstractConverter {
             int ntpmn = typTr2.getIntAttributeValue(ntpmnT);
             int ntpmx = typTr2.getIntAttributeValue(ntpmxT);
 
+            nntap = fixTapInsideLimits(nntap, ntpmn, ntpmx, elmTr2);
+
             Optional<Float> opdutap = typTr2.findFloatAttributeValue(duTapT);
             Optional<Float> opphitr = typTr2.findFloatAttributeValue(phitrT);
 
@@ -499,6 +555,18 @@ class TransformerConverter extends AbstractConverter {
             double phitr = opphitr.isPresent() ? opphitr.get() : 0.0;
 
             return new PowerFactoryTapChanger(nntap, nntap0, ntpmn, ntpmx, dutap, phitr);
+        }
+
+        private static int fixTapInsideLimits(int nntap, int ntpmn, int ntpmx, DataObject elementObj) {
+            if (nntap < ntpmn) {
+                LOGGER.warn("{}: Tap {} has been fixed to the minimum tap {} '{}'", elementObj.getDataClassName(), nntap, ntpmn, elementObj);
+                return ntpmn;
+            } else if (nntap > ntpmx) {
+                LOGGER.warn("{}: Tap {} has been fixed to the maximum tap {} '{}'", elementObj.getDataClassName(), nntap, ntpmx, elementObj);
+                return ntpmx;
+            } else {
+                return nntap;
+            }
         }
     }
 
@@ -613,14 +681,14 @@ class TransformerConverter extends AbstractConverter {
             if (powerFactoryTapChanger.mTaps.getColumnDimension() == 8) {
                 return createTapChangerFromResourceTableForThreeWindingsTansformer(powerFactoryTapChanger);
             }
-            throw new PowsyblException("Unexpected number of columns in mTaps");
+            throw new PowerFactoryException("Unexpected number of columns in mTaps");
         }
 
         private static TapChangerModel createTapChangerFromResourceTableForTwoWindingsTansformer(PowerFactoryTapChanger powerFactoryTapChanger) {
 
             int rows = powerFactoryTapChanger.mTaps.getRowDimension();
             if (rows != powerFactoryTapChanger.ntpmx - powerFactoryTapChanger.ntpmn + 1) {
-                throw new PowsyblException("Unexpected number of rows in mTaps");
+                throw new PowerFactoryException("Unexpected number of rows in mTaps");
             }
             TapChangerModel tapChangerModel = new TapChangerModel(powerFactoryTapChanger.ntpmn, powerFactoryTapChanger.nntap);
             for (int row = 0; row < rows; row++) {
@@ -636,7 +704,7 @@ class TransformerConverter extends AbstractConverter {
 
             int rows = powerFactoryTapChanger.mTaps.getRowDimension();
             if (rows != powerFactoryTapChanger.ntpmx - powerFactoryTapChanger.ntpmn + 1) {
-                throw new PowsyblException("Unexpected mTaps dimension");
+                throw new PowerFactoryException("Unexpected mTaps dimension");
             }
             double ratio = 1.0;
             TapChangerModel tapChangerModel = new TapChangerModel(powerFactoryTapChanger.ntpmn, powerFactoryTapChanger.nntap);
@@ -745,15 +813,13 @@ class TransformerConverter extends AbstractConverter {
     }
 
     private static WindingType positionToWindingType(int position) {
-        switch (position) {
-            case 0:
-                return WindingType.HIGH;
-            case 1:
-                return WindingType.MEDIUM;
-            case 2:
-                return WindingType.LOW;
-            default:
-                throw new PowsyblException("Unexpected position: " + position);
-        }
+        return switch (position) {
+            case 0 -> WindingType.HIGH;
+            case 1 -> WindingType.MEDIUM;
+            case 2 -> WindingType.LOW;
+            default -> throw new PowerFactoryException("Unexpected position: " + position);
+        };
     }
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TransformerConverter.class);
 }

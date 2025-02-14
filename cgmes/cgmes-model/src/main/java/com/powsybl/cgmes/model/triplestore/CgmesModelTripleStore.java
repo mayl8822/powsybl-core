@@ -3,21 +3,29 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.model.triplestore;
 
 import com.powsybl.cgmes.model.*;
 import com.powsybl.commons.datasource.DataSource;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.triplestore.api.*;
 import org.apache.commons.lang3.EnumUtils;
-import org.joda.time.DateTime;
-import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -30,11 +38,12 @@ import static com.powsybl.cgmes.model.CgmesNamespace.CGMES_EQ_3_OR_GREATER_PREFI
 import static com.powsybl.cgmes.model.CgmesNamespace.CIM_100_EQ_PROFILE;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class CgmesModelTripleStore extends AbstractCgmesModel {
 
     public CgmesModelTripleStore(String cimNamespace, TripleStore tripleStore) {
+        super();
         this.cimNamespace = cimNamespace;
         this.cimVersion = cimVersionFromCimNamespace(cimNamespace);
         this.tripleStore = tripleStore;
@@ -46,7 +55,7 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
-    public void read(InputStream is, String baseName, String contextName) {
+    public void read(InputStream is, String baseName, String contextName, ReportNode reportNode) {
         // Reset cached nodeBreaker value everytime we read new data
         nodeBreaker = null;
         tripleStore.read(is, baseName, contextName);
@@ -172,7 +181,7 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
         // Only consider is node breaker if all models that have profile
         // EquipmentCore or EquipmentBoundary
         // also have EquipmentOperation or EquipmentBoundaryOperation
-        Map<String, Boolean> modelHasOperationProfile = computeEqModelHasEquipmentOperationProfile(r);
+        Map<String, Boolean> modelHasOperationProfile = computeModelHasOperationProfile(r);
         boolean consideredNodeBreaker = modelHasOperationProfile.values().stream().allMatch(Boolean::valueOf);
         if (LOG.isInfoEnabled()) {
             logNodeBreaker(consideredNodeBreaker, modelHasOperationProfile);
@@ -209,29 +218,48 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
         }
     }
 
-    private Map<String, Boolean> computeEqModelHasEquipmentOperationProfile(PropertyBags modelProfiles) {
+    private Map<String, Boolean> computeModelHasOperationProfile(PropertyBags modelProfiles) {
+        // A bus/branch model with a single instance file where its node/breaker boundary has been assembled
+        // Must not be considered as node-breaker
         Map<String, Boolean> modelHasOperationProfile = new HashMap<>();
+        Map<String, Boolean> modelHasBoundaryOperationProfile = new HashMap<>();
         for (PropertyBag mp : modelProfiles) {
             String m = mp.get("FullModel");
             String p = mp.get(PROFILE);
             if (p != null) {
-                if (isEquipmentCore(p) || p.contains("/EquipmentBoundary/")) {
-                    modelHasOperationProfile.putIfAbsent(m, false);
-                }
-                if (isEquipmentOperation(p) || p.contains("/EquipmentBoundaryOperation/")) {
-                    modelHasOperationProfile.put(m, true);
-                    if (LOG.isInfoEnabled()) {
-                        LOG.info("Model {} is considered node-breaker", m);
-                    }
-                }
+                updateModelHasOperationProfile(modelHasOperationProfile, modelHasBoundaryOperationProfile, m, p);
             }
         }
+        modelHasBoundaryOperationProfile.forEach((m, v) -> modelHasOperationProfile.merge(m, v, (vm, vbd) -> vm && vbd));
         return modelHasOperationProfile;
     }
 
+    private void updateModelHasOperationProfile(Map<String, Boolean> modelHasOperationProfile, Map<String, Boolean> modelHasBoundaryOperationProfile, String model, String profile) {
+        if (isEquipmentCore(profile)) {
+            // Set to false only if we do not have a value already
+            modelHasOperationProfile.putIfAbsent(model, false);
+        }
+        if (isEquipmentOperation(profile)) {
+            modelHasOperationProfile.put(model, true);
+            LOG.info("Model {} is considered node-breaker", model);
+        }
+        if (profile.contains("/EquipmentBoundary/")) {
+            // Set to false only if we do not have a value already
+            modelHasBoundaryOperationProfile.putIfAbsent(model, false);
+        }
+        if (profile.contains("/EquipmentBoundaryOperation/")) {
+            modelHasBoundaryOperationProfile.put(model, true);
+            LOG.info("Model {} boundary is considered node-breaker", model);
+        }
+    }
+
+    /**
+     * Query the model description (the metadata information) for all profiles (EQ, TP, ...).
+     * @return Property bags (one bag per profile) with all the model description found.
+     */
     @Override
-    public PropertyBags fullModel(String cgmesProfile) {
-        return namedQuery("fullModel", cgmesProfile);
+    public PropertyBags fullModels() {
+        return namedQuery("fullModels");
     }
 
     @Override
@@ -253,19 +281,19 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
-    public DateTime scenarioTime() {
-        DateTime defaultScenarioTime = DateTime.now();
+    public ZonedDateTime scenarioTime() {
+        ZonedDateTime defaultScenarioTime = ZonedDateTime.now();
         return queryDate("scenarioTime", defaultScenarioTime);
     }
 
     @Override
-    public DateTime created() {
-        DateTime defaultCreated = DateTime.now();
+    public ZonedDateTime created() {
+        ZonedDateTime defaultCreated = ZonedDateTime.now();
         return queryDate("created", defaultCreated);
     }
 
-    private DateTime queryDate(String propertyName, DateTime defaultValue) {
-        DateTime d = defaultValue;
+    private ZonedDateTime queryDate(String propertyName, ZonedDateTime defaultValue) {
+        ZonedDateTime d = defaultValue;
         if (queryCatalog.containsKey("modelDates")) {
             PropertyBags r = namedQuery("modelDates");
             if (r != null && !r.isEmpty()) {
@@ -276,8 +304,8 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
                 if (s != null && !s.isEmpty()) {
                     // Assume date time given as UTC if no explicit zone is specified
                     try {
-                        d = DateTime.parse(s, ISODateTimeFormat.dateTimeParser().withOffsetParsed().withZoneUTC());
-                    } catch (IllegalArgumentException e) {
+                        d = parseDateTime(s);
+                    } catch (DateTimeParseException e) {
                         LOG.error("Invalid date: {}. The date has been fixed to {}.", s, defaultValue);
                         return defaultValue;
                     }
@@ -285,6 +313,32 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
             }
         }
         return d;
+    }
+
+    /**
+     * Parse a date in ISO format. If the offset is not present at the end (ie. no "Z" nor "+xx:xx" or "+xxxx"), it is
+     * assumed that the date is given as UTC.
+     * @param dateAsString Date in ISO format
+     * @return the date as ZonedDateTime
+     */
+    private ZonedDateTime parseDateTime(String dateAsString) {
+        // Definition of the parser according to the expected date format
+        DateTimeFormatter dateTimeFormatterLocalised = new DateTimeFormatterBuilder()
+            // Fixed mandatory pattern
+            .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+            // Between 0 and 9 decimals (9 is the maximum)
+            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+            // Potentially a suffix for localisation (VV: zoneId, x: +HHmm, xx: +HHMM, xxx: +HH:MM)
+            .appendPattern("[VV][x][xx][xxx]")
+            .toFormatter();
+
+        // Parsing
+        TemporalAccessor dateParsed = dateTimeFormatterLocalised.parseBest(dateAsString, ZonedDateTime::from, LocalDateTime::from);
+        if (dateParsed instanceof ZonedDateTime zonedDateTime) {
+            return zonedDateTime;
+        } else {
+            return ZonedDateTime.of((LocalDateTime) dateParsed, ZoneOffset.UTC);
+        }
     }
 
     @Override
@@ -320,6 +374,16 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     @Override
     public PropertyBags baseVoltages() {
         return namedQuery("baseVoltages");
+    }
+
+    @Override
+    public PropertyBags countrySourcingActors(String countryName) {
+        return namedQuery("countrySourcingActors", countryName);
+    }
+
+    @Override
+    public PropertyBags sourcingActor(String sourcingActor) {
+        return namedQuery("sourcingActor", sourcingActor);
     }
 
     @Override
@@ -404,8 +468,18 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
+    public PropertyBags ratioTapChangerTablePoints() {
+        return namedQuery("ratioTapChangerTablePoints");
+    }
+
+    @Override
     public PropertyBags phaseTapChangers() {
         return namedQuery("phaseTapChangers");
+    }
+
+    @Override
+    public PropertyBags phaseTapChangerTablePoints() {
+        return namedQuery("phaseTapChangerTablePoints");
     }
 
     @Override
@@ -434,9 +508,8 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
-    public PropertyBags nonlinearShuntCompensatorPoints(String scId) {
-        Objects.requireNonNull(scId);
-        return namedQuery("nonlinearShuntCompensatorPoints", scId);
+    public PropertyBags nonlinearShuntCompensatorPoints() {
+        return namedQuery("nonlinearShuntCompensatorPoints");
     }
 
     @Override
@@ -445,8 +518,13 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
-    public PropertyBags synchronousMachines() {
-        return namedQuery("synchronousMachines");
+    public PropertyBags synchronousMachinesGenerators() {
+        return namedQuery("synchronousMachinesGenerators");
+    }
+
+    @Override
+    public PropertyBags synchronousMachinesCondensers() {
+        return namedQuery("synchronousMachinesCondensers");
     }
 
     @Override
@@ -472,28 +550,6 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     @Override
     public PropertyBags reactiveCapabilityCurveData() {
         return namedQuery("reactiveCapabilityCurveData");
-    }
-
-    @Override
-    public PropertyBags ratioTapChangerTablesPoints() {
-        return namedQuery("ratioTapChangerTablesPoints");
-    }
-
-    @Override
-    public PropertyBags phaseTapChangerTablesPoints() {
-        return namedQuery("phaseTapChangerTablesPoints");
-    }
-
-    @Override
-    public PropertyBags ratioTapChangerTable(String tableId) {
-        Objects.requireNonNull(tableId);
-        return namedQuery("ratioTapChangerTable", tableId);
-    }
-
-    @Override
-    public PropertyBags phaseTapChangerTable(String tableId) {
-        Objects.requireNonNull(tableId);
-        return namedQuery("phaseTapChangerTable", tableId);
     }
 
     @Override
@@ -532,6 +588,11 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
     }
 
     @Override
+    public PropertyBags grounds() {
+        return namedQuery("grounds");
+    }
+
+    @Override
     public PropertyBags modelProfiles() {
         return namedQuery(MODEL_PROFILES);
     }
@@ -550,6 +611,7 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
         PropertyBags r = query(queryText);
         final long t1 = System.currentTimeMillis();
         if (LOG.isDebugEnabled()) {
+            LOG.debug("results query {}{}{}", name, System.lineSeparator(), r.tabulateLocals());
             LOG.debug("dt query {} {} ms, result set size = {}", name, t1 - t0, r.size());
         }
         return r;
@@ -668,8 +730,8 @@ public class CgmesModelTripleStore extends AbstractCgmesModel {
             .findFirst().orElse(def).getNamespace();
     }
 
-    private static final Pattern CIM_NAMESPACE_VERSION_PATTERN_UNTIL_16 = Pattern.compile("^.*CIM-schema-cim([0-9]+)#$");
-    private static final Pattern CIM_NAMESPACE_VERSION_PATTERN_FROM_100 = Pattern.compile("^.*/CIM([0-9]+)#$");
+    private static final Pattern CIM_NAMESPACE_VERSION_PATTERN_UNTIL_16 = Pattern.compile("^.*CIM-schema-cim(\\d+)#$");
+    private static final Pattern CIM_NAMESPACE_VERSION_PATTERN_FROM_100 = Pattern.compile("^.*/CIM(\\d+)#$");
 
     private static int cimVersionFromCimNamespace(String cimNamespace) {
         Matcher m = CIM_NAMESPACE_VERSION_PATTERN_UNTIL_16.matcher(cimNamespace);

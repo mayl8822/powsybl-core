@@ -3,16 +3,17 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.math.matrix;
 
+import com.powsybl.commons.exceptions.UncheckedClassNotFoundException;
 import com.powsybl.commons.util.trove.TDoubleArrayListHack;
 import com.powsybl.commons.util.trove.TIntArrayListHack;
-import org.scijava.nativelib.NativeLoader;
 
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UncheckedIOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -22,20 +23,11 @@ import java.util.Objects;
  * This implementation rely on a native library which is a wrapper around KLU module of
  * <a href="http://faculty.cse.tamu.edu/davis/suitesparse.html">SuiteSparse</a> project.
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class SparseMatrix extends AbstractMatrix {
+public class SparseMatrix extends AbstractMatrix implements Serializable {
 
-    private static native void nativeInit();
-
-    static {
-        try {
-            NativeLoader.loadLibrary("math");
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        nativeInit();
-    }
+    private static final long serialVersionUID = -7810324161942335828L;
 
     /**
      * Sparse Element implementation.
@@ -110,14 +102,22 @@ public class SparseMatrix extends AbstractMatrix {
      * @param rowIndices row indices vector
      * @param values value vector
      */
-    SparseMatrix(int rowCount, int columnCount, int[] columnStart, int[] rowIndices, double[] values) {
+    public SparseMatrix(int rowCount, int columnCount, int[] columnStart, int[] rowIndices, double[] values) {
+        checkSize(rowCount, columnCount);
         this.rowCount = rowCount;
         this.columnCount = columnCount;
         this.columnStart = Objects.requireNonNull(columnStart);
+        if (columnStart.length != columnCount + 1) {
+            throw new MatrixException("columnStart array length has to be columnCount + 1");
+        }
         columnValueCount = new int[columnCount];
         this.rowIndices = new TIntArrayListHack(Objects.requireNonNull(rowIndices));
         this.values = new TDoubleArrayListHack(Objects.requireNonNull(values));
+        if (rowIndices.length != values.length) {
+            throw new MatrixException("rowIndices and values arrays must have the same length");
+        }
         fillColumnValueCount(this.columnCount, this.columnStart, columnValueCount, this.values);
+        currentColumn = columnCount - 1;
     }
 
     private static void fillColumnValueCount(int columnCount, int[] columnStart, int[] columnValueCount, TDoubleArrayListHack values) {
@@ -140,23 +140,27 @@ public class SparseMatrix extends AbstractMatrix {
      *
      * @param rowCount row count
      * @param columnCount column count
-     * @param estimatedNonZeroValueCount estimated number of non zero values (used for internal pre-allocation)
+     * @param estimatedValueCount estimated number of values (used for internal pre-allocation)
      */
-    SparseMatrix(int rowCount, int columnCount, int estimatedNonZeroValueCount) {
-        if (rowCount < 0) {
-            throw new MatrixException("row count has to be positive");
-        }
-        if (columnCount < 0) {
-            throw new MatrixException("column count has to be positive");
-        }
+    SparseMatrix(int rowCount, int columnCount, int estimatedValueCount) {
+        checkSize(rowCount, columnCount);
         this.rowCount = rowCount;
         this.columnCount = columnCount;
         columnStart = new int[columnCount + 1];
         columnValueCount = new int[columnCount];
         Arrays.fill(columnStart, -1);
         this.columnStart[columnCount] = 0;
-        rowIndices = new TIntArrayListHack(estimatedNonZeroValueCount);
-        values = new TDoubleArrayListHack(estimatedNonZeroValueCount);
+        rowIndices = new TIntArrayListHack(estimatedValueCount);
+        values = new TDoubleArrayListHack(estimatedValueCount);
+    }
+
+    private static void checkSize(int rowCount, int columnCount) {
+        if (rowCount < 1) {
+            throw new MatrixException("row count has to be strictly positive");
+        }
+        if (columnCount < 1) {
+            throw new MatrixException("column count has to be strictly positive");
+        }
     }
 
     public double getRgrowthThreshold() {
@@ -172,7 +176,7 @@ public class SparseMatrix extends AbstractMatrix {
      *
      * @return columm start index vector
      */
-    int[] getColumnStart() {
+    public int[] getColumnStart() {
         return columnStart;
     }
 
@@ -190,7 +194,7 @@ public class SparseMatrix extends AbstractMatrix {
      *
      * @return row index vector
      */
-    int[] getRowIndices() {
+    public int[] getRowIndices() {
         return rowIndices.getData();
     }
 
@@ -199,7 +203,7 @@ public class SparseMatrix extends AbstractMatrix {
      *
      * @return non zero value vector
      */
-    double[] getValues() {
+    public double[] getValues() {
         return values.getData();
     }
 
@@ -347,13 +351,34 @@ public class SparseMatrix extends AbstractMatrix {
 
     private native SparseMatrix add(int m1, int n1, int[] ap1, int[] ai1, double[] ax1, int m2, int n2, int[] ap2, int[] ai2, double[] ax2, double alpha, double beta);
 
-    @Override
-    public Matrix times(Matrix other) {
-        SparseMatrix o = Objects.requireNonNull(other).toSparse();
+    public SparseMatrix times(SparseMatrix other) {
+        Objects.requireNonNull(other);
         fillLastEmptyColumns();
-        o.fillLastEmptyColumns();
+        other.fillLastEmptyColumns();
         SparseMatrix result = times(rowCount, columnCount, columnStart, rowIndices.getData(), values.getData(),
-                o.rowCount, o.columnCount, o.columnStart, o.rowIndices.getData(), o.values.getData());
+                other.rowCount, other.columnCount, other.columnStart, other.rowIndices.getData(), other.values.getData());
+        result.setRgrowthThreshold(rgrowthThreshold);
+        return result;
+    }
+
+    public SparseMatrix times(SparseMatrix other, double scalar) {
+        SparseMatrix result = times(other);
+        result.values.transformValues(v -> v * scalar);
+        return result;
+    }
+
+    @Override
+    public Matrix times(Matrix other, double scalar) {
+        SparseMatrix o = Objects.requireNonNull(other).toSparse();
+        return times(o, scalar);
+    }
+
+    public SparseMatrix add(SparseMatrix other, double alpha, double beta) {
+        Objects.requireNonNull(other);
+        fillLastEmptyColumns();
+        other.fillLastEmptyColumns();
+        SparseMatrix result = add(rowCount, columnCount, columnStart, rowIndices.getData(), values.getData(),
+                other.rowCount, other.columnCount, other.columnStart, other.rowIndices.getData(), other.values.getData(), alpha, beta);
         result.setRgrowthThreshold(rgrowthThreshold);
         return result;
     }
@@ -361,12 +386,7 @@ public class SparseMatrix extends AbstractMatrix {
     @Override
     public Matrix add(Matrix other, double alpha, double beta) {
         SparseMatrix o = Objects.requireNonNull(other).toSparse();
-        fillLastEmptyColumns();
-        o.fillLastEmptyColumns();
-        SparseMatrix result = add(rowCount, columnCount, columnStart, rowIndices.getData(), values.getData(),
-                o.rowCount, o.columnCount, o.columnStart, o.rowIndices.getData(), o.values.getData(), alpha, beta);
-        result.setRgrowthThreshold(rgrowthThreshold);
-        return result;
+        return add(o, alpha, beta);
     }
 
     @Override
@@ -408,7 +428,7 @@ public class SparseMatrix extends AbstractMatrix {
     }
 
     @Override
-    protected int getEstimatedNonZeroValueCount() {
+    public int getValueCount() {
         return values.size();
     }
 
@@ -444,8 +464,7 @@ public class SparseMatrix extends AbstractMatrix {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof SparseMatrix) {
-            SparseMatrix other = (SparseMatrix) obj;
+        if (obj instanceof SparseMatrix other) {
             return rowCount == other.rowCount &&
                     columnCount == other.columnCount &&
                     Arrays.equals(columnStart, other.columnStart) &&
@@ -454,5 +473,43 @@ public class SparseMatrix extends AbstractMatrix {
                     values.equals(other.values);
         }
         return false;
+    }
+
+    public void write(OutputStream outputStream) {
+        Objects.requireNonNull(outputStream);
+        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
+            objectOutputStream.writeObject(this);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static SparseMatrix read(InputStream inputStream) {
+        Objects.requireNonNull(inputStream);
+        try (ObjectInputStream objectInputStream = new ObjectInputStream(inputStream)) {
+            return (SparseMatrix) objectInputStream.readObject();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (ClassNotFoundException e) {
+            throw new UncheckedClassNotFoundException(e);
+        }
+    }
+
+    public void write(Path file) {
+        Objects.requireNonNull(file);
+        try (OutputStream outputStream = Files.newOutputStream(file)) {
+            write(outputStream);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static SparseMatrix read(Path file) {
+        Objects.requireNonNull(file);
+        try (InputStream inputStream = Files.newInputStream(file)) {
+            return read(inputStream);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

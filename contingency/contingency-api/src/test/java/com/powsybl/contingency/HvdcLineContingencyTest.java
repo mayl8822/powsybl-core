@@ -3,33 +3,35 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.contingency;
 
 import com.google.common.testing.EqualsTester;
+import com.powsybl.contingency.contingency.list.ContingencyList;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.test.HvdcTestNetwork;
 import com.powsybl.iidm.modification.tripping.HvdcLineTripping;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class HvdcLineContingencyTest {
+class HvdcLineContingencyTest {
 
     @Test
-    public void test() {
+    void test() {
         HvdcLineContingency contingency = new HvdcLineContingency("id");
         assertEquals("id", contingency.getId());
         assertNull(contingency.getVoltageLevelId());
         assertEquals(ContingencyElementType.HVDC_LINE, contingency.getType());
 
         assertNotNull(contingency.toModification());
-        assertTrue(contingency.toModification() instanceof HvdcLineTripping);
+        assertInstanceOf(HvdcLineTripping.class, contingency.toModification());
 
         contingency = new HvdcLineContingency("id", "voltageLevelId");
         assertEquals("voltageLevelId", contingency.getVoltageLevelId());
@@ -42,7 +44,7 @@ public class HvdcLineContingencyTest {
     }
 
     @Test
-    public void test2() {
+    void test2() {
         Network network = HvdcTestNetwork.createLcc();
         ContingencyList contingencyList = ContingencyList.of(Contingency.hvdcLine("L"), Contingency.hvdcLine("L", "UNKNOWN"));
         List<Contingency> contingencies = contingencyList.getContingencies(network);

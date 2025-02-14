@@ -3,39 +3,27 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.json;
 
-import com.powsybl.contingency.json.ContingencyJsonModule;
-import com.powsybl.security.*;
-import com.powsybl.security.results.*;
+import com.powsybl.security.SecurityAnalysisParameters;
+
+import java.util.Collection;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
+ * @author Laurent Issertial {@literal <laurent.issertial at rte-france.com>}0
  */
-public class SecurityAnalysisJsonModule extends ContingencyJsonModule {
+public class SecurityAnalysisJsonModule extends AbstractSecurityAnalysisJsonModule {
 
     public SecurityAnalysisJsonModule() {
-        addSerializer(SecurityAnalysisResult.class, new SecurityAnalysisResultSerializer());
-        addSerializer(NetworkMetadata.class, new NetworkMetadataSerializer());
-        addSerializer(PostContingencyResult.class, new PostContingencyResultSerializer());
-        addSerializer(LimitViolationsResult.class, new LimitViolationsResultSerializer());
-        addSerializer(LimitViolation.class, new LimitViolationSerializer());
-        addSerializer(PreContingencyResult.class, new PreContingencyResultSerializer());
-        addSerializer(BusResult.class, new BusResultSerializer());
-        addSerializer(BranchResult.class, new BranchResultSerializer());
-        addSerializer(ThreeWindingsTransformerResult.class, new ThreeWindingsTransformerResultSerializer());
-        addSerializer(SecurityAnalysisParameters.class, new SecurityAnalysisParametersSerializer());
+        this(getServices());
+    }
 
-        addDeserializer(SecurityAnalysisResult.class, new SecurityAnalysisResultDeserializer());
-        addDeserializer(NetworkMetadata.class, new NetworkMetadataDeserializer());
-        addDeserializer(PostContingencyResult.class, new PostContingencyResultDeserializer());
-        addDeserializer(LimitViolationsResult.class, new LimitViolationResultDeserializer());
-        addDeserializer(LimitViolation.class, new LimitViolationDeserializer());
-        addDeserializer(PreContingencyResult.class, new PreContingencyResultDeserializer());
-        addDeserializer(BusResult.class, new BusResultDeserializer());
-        addDeserializer(BranchResult.class, new BranchResultDeserializer());
-        addDeserializer(ThreeWindingsTransformerResult.class, new ThreeWindingsTransformerResultDeserializer());
+    public SecurityAnalysisJsonModule(Collection<SecurityAnalysisJsonPlugin> plugins) {
+        super(plugins);
+        addSerializer(SecurityAnalysisParameters.class, new SecurityAnalysisParametersSerializer());
         addDeserializer(SecurityAnalysisParameters.class, new SecurityAnalysisParametersDeserializer());
     }
 }

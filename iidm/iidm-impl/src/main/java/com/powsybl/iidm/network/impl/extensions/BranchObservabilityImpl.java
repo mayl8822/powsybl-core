@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl.extensions;
 
@@ -12,7 +13,7 @@ import com.powsybl.iidm.network.extensions.BranchObservability;
 import com.powsybl.iidm.network.extensions.ObservabilityQuality;
 
 /**
- * @author Thomas Adam <tadam at silicom.fr>
+ * @author Thomas Adam {@literal <tadam at silicom.fr>}
  */
 public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtension<B>
         implements BranchObservability<B> {
@@ -33,10 +34,10 @@ public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtens
     }
 
     public BranchObservabilityImpl(B component, boolean observable,
-                                   double standardDeviationP1, boolean redundantP1,
-                                   double standardDeviationP2, boolean redundantP2,
-                                   double standardDeviationQ1, boolean redundantQ1,
-                                   double standardDeviationQ2, boolean redundantQ2) {
+                                   double standardDeviationP1, Boolean redundantP1,
+                                   double standardDeviationP2, Boolean redundantP2,
+                                   double standardDeviationQ1, Boolean redundantQ1,
+                                   double standardDeviationQ2, Boolean redundantQ2) {
         this(component, observable);
         this.qualityP1 = new ObservabilityQualityImpl<>(standardDeviationP1, redundantP1);
         this.qualityP2 = new ObservabilityQualityImpl<>(standardDeviationP2, redundantP2);
@@ -60,7 +61,7 @@ public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtens
     }
 
     @Override
-    public BranchObservability<B> setQualityP1(double standardDeviation, boolean redundant) {
+    public BranchObservability<B> setQualityP1(double standardDeviation, Boolean redundant) {
         if (qualityP1 == null) {
             qualityP1 = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {
@@ -86,7 +87,7 @@ public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtens
     }
 
     @Override
-    public BranchObservability<B> setQualityP2(double standardDeviation, boolean redundant) {
+    public BranchObservability<B> setQualityP2(double standardDeviation, Boolean redundant) {
         if (qualityP2 == null) {
             qualityP2 = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {
@@ -112,7 +113,7 @@ public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtens
     }
 
     @Override
-    public BranchObservability<B> setQualityQ1(double standardDeviation, boolean redundant) {
+    public BranchObservability<B> setQualityQ1(double standardDeviation, Boolean redundant) {
         if (qualityQ1 == null) {
             qualityQ1 = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {
@@ -138,7 +139,7 @@ public class BranchObservabilityImpl<B extends Branch<B>> extends AbstractExtens
     }
 
     @Override
-    public BranchObservability<B> setQualityQ2(double standardDeviation, boolean redundant) {
+    public BranchObservability<B> setQualityQ2(double standardDeviation, Boolean redundant) {
         if (qualityQ2 == null) {
             qualityQ2 = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {

@@ -3,16 +3,15 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.hvdc;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.model.CgmesDcTerminal;
 import com.powsybl.cgmes.model.CgmesModel;
 import com.powsybl.cgmes.model.CgmesNames;
@@ -22,8 +21,8 @@ import com.powsybl.triplestore.api.PropertyBags;
 
 /**
  *
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 class NodeEquipment {
 
@@ -33,7 +32,7 @@ class NodeEquipment {
 
     private final Map<String, List<EquipmentReference>> nodeEquipment;
 
-    NodeEquipment(CgmesModel cgmesModel, AcDcConverterNodes acDcConverterNodes, Adjacency adjacency) {
+    NodeEquipment(CgmesModel cgmesModel, Context context, AcDcConverterNodes acDcConverterNodes, Adjacency adjacency) {
         nodeEquipment = new HashMap<>();
 
         cgmesModel.dcLineSegments().forEach(dcls -> computeDcLineSegment(cgmesModel, adjacency, dcls));
@@ -42,13 +41,15 @@ class NodeEquipment {
             .forEach(value -> addEquipment(adjacency, value.id, value.acNode,
                 value.dcNode, EquipmentType.AC_DC_CONVERTER));
 
-        cgmesModel.groupedTransformerEnds().forEach((t, ends) -> {
-            if (ends.size() == 2) {
-                computeTwoWindingsTransformer(cgmesModel, adjacency, ends);
-            } else if (ends.size() == 3) {
-                computeThreeWindingsTransformer(cgmesModel, adjacency, ends);
-            }
-        });
+        cgmesModel.transformers().stream()
+                .map(t -> context.transformerEnds(t.getId("PowerTransformer")))
+                .forEach(ends -> {
+                    if (ends.size() == 2) {
+                        computeTwoWindingsTransformer(cgmesModel, adjacency, ends);
+                    } else if (ends.size() == 3) {
+                        computeThreeWindingsTransformer(cgmesModel, adjacency, ends);
+                    }
+                });
     }
 
     private void computeDcLineSegment(CgmesModel cgmesModel, Adjacency adjacency, PropertyBag equipment) {
@@ -143,6 +144,15 @@ class NodeEquipment {
         }
         return listEquipment.stream()
             .anyMatch(eq -> eq.type == EquipmentType.AC_DC_CONVERTER);
+    }
+
+    boolean containsAnyNotUsedAcDcConverter(String node, Set<String> usedAcDcConverters) {
+        List<EquipmentReference> listEquipment = nodeEquipment.get(node);
+        if (listEquipment == null) {
+            return false;
+        }
+        return listEquipment.stream()
+                .anyMatch(eq -> eq.type == EquipmentType.AC_DC_CONVERTER && !usedAcDcConverters.contains(eq.equipmentId));
     }
 
     boolean multiAcDcConverter(String node) {

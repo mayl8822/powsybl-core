@@ -3,21 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck.extensions;
 
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.extensions.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public abstract class AbstractSubstationAndLinePositionTest {
 
@@ -25,10 +26,9 @@ public abstract class AbstractSubstationAndLinePositionTest {
     public void test() {
         Network network = EurostagTutorialExample1Factory.create();
         var p1 = network.getSubstation("P1");
-        p1.newExtension(SubstationPositionAdder.class)
+        var substationPosition = p1.newExtension(SubstationPositionAdder.class)
                 .withCoordinate(new Coordinate(48, 2))
                 .add();
-        var substationPosition = p1.getExtension(SubstationPosition.class);
         assertNotNull(substationPosition);
         assertEquals(new Coordinate(48, 2), substationPosition.getCoordinate());
 

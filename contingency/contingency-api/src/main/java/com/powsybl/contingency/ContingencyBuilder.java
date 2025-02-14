@@ -3,16 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.contingency;
+
+import com.powsybl.commons.PowsyblException;
+import com.powsybl.iidm.network.Identifiable;
+import com.powsybl.iidm.network.Network;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
 public class ContingencyBuilder {
 
@@ -20,13 +25,20 @@ public class ContingencyBuilder {
 
     private final List<ContingencyElement> elements;
 
+    private String name;
+
     ContingencyBuilder(String id) {
         this.id = Objects.requireNonNull(id);
         this.elements = new ArrayList<>();
     }
 
     public Contingency build() {
-        return new Contingency(id, elements);
+        return new Contingency(id, name, elements);
+    }
+
+    public ContingencyBuilder addBattery(String id) {
+        elements.add(new BatteryContingency(id));
+        return this;
     }
 
     public ContingencyBuilder addBranch(String id) {
@@ -106,6 +118,39 @@ public class ContingencyBuilder {
 
     public ContingencyBuilder addSwitch(String id) {
         elements.add(new SwitchContingency(id));
+        return this;
+    }
+
+    public ContingencyBuilder addBus(String id) {
+        elements.add(new BusContingency(id));
+        return this;
+    }
+
+    public ContingencyBuilder addTieLine(String id) {
+        elements.add(new TieLineContingency(id));
+        return this;
+    }
+
+    public ContingencyBuilder addTieLine(String id, String voltageLevelId) {
+        elements.add(new TieLineContingency(id, voltageLevelId));
+        return this;
+    }
+
+    public ContingencyBuilder addIdentifiable(String id, Network network) {
+        Identifiable<?> identifiable = network.getIdentifiable(id);
+        if (identifiable == null) {
+            throw new PowsyblException(String.format("Element %s has not been found in the network", id));
+        }
+        return addIdentifiable(identifiable);
+    }
+
+    public ContingencyBuilder addIdentifiable(Identifiable<?> identifiable) {
+        elements.add(ContingencyElement.of(identifiable));
+        return this;
+    }
+
+    public ContingencyBuilder addName(String name) {
+        this.name = name;
         return this;
     }
 }

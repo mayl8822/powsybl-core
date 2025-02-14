@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.transformers;
@@ -12,6 +13,7 @@ import com.powsybl.cgmes.conversion.Conversion;
 import com.powsybl.cgmes.conversion.RegulatingControlMappingForTransformers.CgmesRegulatingControlPhase;
 import com.powsybl.cgmes.conversion.RegulatingControlMappingForTransformers.CgmesRegulatingControlRatio;
 import com.powsybl.cgmes.model.CgmesNames;
+import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.ThreeWindingsTransformerAdder.LegAdder;
 import com.powsybl.iidm.network.extensions.ThreeWindingsTransformerPhaseAngleClock;
@@ -50,8 +52,8 @@ import com.powsybl.triplestore.api.PropertyBags;
  * Set <br>
  * A direct map from ConvertedT3xModel to IIDM model
  * <p>
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 public class ThreeWindingsTransformerConversion extends AbstractTransformerConversion {
 
@@ -91,7 +93,7 @@ public class ThreeWindingsTransformerConversion extends AbstractTransformerConve
     private void setToIidm(ConvertedT3xModel convertedT3xModel) {
         ThreeWindingsTransformerAdder txadder = substation()
                 .map(Substation::newThreeWindingsTransformer)
-                .orElseGet(() -> context.network().newThreeWindingsTransformer())
+                .orElseThrow(() -> new PowsyblException("Substation null! Transformer must be within a substation"))
                 .setRatedU0(convertedT3xModel.ratedU0);
         identify(txadder);
 
@@ -136,6 +138,9 @@ public class ThreeWindingsTransformerConversion extends AbstractTransformerConve
             .setG(convertedModelWinding.end1.g)
             .setB(convertedModelWinding.end1.b)
             .setRatedU(convertedModelWinding.end1.ratedU);
+        if (convertedModelWinding.ratedS != null) {
+            ladder.setRatedS(convertedModelWinding.ratedS);
+        }
     }
 
     private static void setToIidmWindingTapChanger(ConvertedT3xModel convertedT3xModel, ConvertedT3xModel.ConvertedWinding convertedModelWinding,

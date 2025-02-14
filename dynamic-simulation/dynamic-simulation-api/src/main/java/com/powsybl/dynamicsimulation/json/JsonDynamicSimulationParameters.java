@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.dynamicsimulation.json;
 
@@ -13,6 +14,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -20,7 +22,6 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.powsybl.commons.extensions.Extension;
 import com.powsybl.commons.extensions.ExtensionJsonSerializer;
@@ -31,7 +32,7 @@ import com.powsybl.dynamicsimulation.DynamicSimulationParameters;
 /**
  * Provides methods to read and write DynamicSimulationParameters from and to JSON.
  *
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
 public final class JsonDynamicSimulationParameters {
 
@@ -145,7 +146,7 @@ public final class JsonDynamicSimulationParameters {
     /**
      *  Low level serialization method, to be used for instance for writing load flow parameters nested in another object.
      */
-    public static void serialize(DynamicSimulationParameters parameters, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException  {
+    public static void serialize(DynamicSimulationParameters parameters, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
         new DynamicSimulationParametersSerializer().serialize(parameters, jsonGenerator, serializerProvider);
     }
 }

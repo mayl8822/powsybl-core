@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.datasource;
 
@@ -15,20 +16,27 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class ResourceDataSource implements ReadOnlyDataSource {
 
     private final String baseName;
 
+    private final String dataExtension;
+
     private final List<ResourceSet> resourceSets;
 
     public ResourceDataSource(String baseName, ResourceSet... resourceSets) {
-        this(baseName, Arrays.asList(resourceSets));
+        this(baseName, null, Arrays.asList(resourceSets));
     }
 
     public ResourceDataSource(String baseName, List<ResourceSet> resourceSets) {
+        this(baseName, null, resourceSets);
+    }
+
+    public ResourceDataSource(String baseName, String dataExtension, List<ResourceSet> resourceSets) {
         this.baseName = Objects.requireNonNull(baseName);
+        this.dataExtension = dataExtension;
         this.resourceSets = Objects.requireNonNull(resourceSets);
     }
 
@@ -38,8 +46,18 @@ public class ResourceDataSource implements ReadOnlyDataSource {
     }
 
     @Override
+    public String getDataExtension() {
+        return dataExtension;
+    }
+
+    @Override
     public boolean exists(String suffix, String ext) {
         return exists(DataSourceUtil.getFileName(baseName, suffix, ext));
+    }
+
+    @Override
+    public boolean isDataExtension(String ext) {
+        return dataExtension == null || dataExtension.isEmpty() || dataExtension.equals(ext);
     }
 
     @Override
@@ -59,7 +77,7 @@ public class ResourceDataSource implements ReadOnlyDataSource {
         return resourceSets.stream().filter(resourceSet -> resourceSet.exists(fileName))
                 .map(resourceSet -> resourceSet.newInputStream(fileName))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("File '" + fileName  + "' not found"));
+                .orElseThrow(() -> new IllegalArgumentException("File '" + fileName + "' not found"));
     }
 
     @Override

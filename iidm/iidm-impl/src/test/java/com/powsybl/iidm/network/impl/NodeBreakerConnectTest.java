@@ -3,20 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
 import com.powsybl.iidm.network.*;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author Florian Dupuy <florian.dupuy at rte-france.com>
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Florian Dupuy {@literal <florian.dupuy at rte-france.com>}
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class NodeBreakerConnectTest {
+class NodeBreakerConnectTest {
 
     /**
      * <pre>
@@ -138,7 +139,7 @@ public class NodeBreakerConnectTest {
     }
 
     @Test
-    public void testNodeBreakerConnectConnectedLoad() {
+    void testNodeBreakerConnectConnectedLoad() {
         Network network = createNetwork();
         Load l = network.getLoad("LD");
         assertTrue(l.getTerminal().isConnected());
@@ -150,7 +151,22 @@ public class NodeBreakerConnectTest {
     }
 
     @Test
-    public void testNodeBreakerDisconnectDisconnectedLoad() {
+    void testNodeBreakerConnectViaVoltageLevelConnectedLoad() {
+        Network network = createNetwork();
+        Load l = network.getLoad("LD");
+        assertTrue(l.getTerminal().isConnected());
+        assertTrue(network.getSwitch("B2").isOpen());
+
+        if (l.getTerminal() instanceof TerminalExt terminal) {
+            NodeBreakerTopologyModel topologyModel = (NodeBreakerTopologyModel) ((VoltageLevelImpl) network.getVoltageLevel("VL")).getTopologyModel();
+            topologyModel.connect(terminal);
+        }
+        assertTrue(network.getSwitch("B2").isOpen());
+        assertTrue(l.getTerminal().isConnected());
+    }
+
+    @Test
+    void testNodeBreakerDisconnectDisconnectedLoad() {
         Network network = createNetwork();
         network.getSwitch("B3").setOpen(true);
         Load l = network.getLoad("LD");
@@ -162,11 +178,14 @@ public class NodeBreakerConnectTest {
     }
 
     @Test
-    public void testNodeBreakerDisconnectionDiamond() {
+    void testNodeBreakerDisconnectionDiamond() {
         Network network = createDiamondNetwork();
         Load l = network.getLoad("L");
         assertTrue(l.getTerminal().isConnected());
-        l.getTerminal().disconnect();
+        if (l.getTerminal() instanceof TerminalExt terminal) {
+            NodeBreakerTopologyModel topologyModel = (NodeBreakerTopologyModel) ((VoltageLevelImpl) network.getVoltageLevel("VL")).getTopologyModel();
+            topologyModel.disconnect(terminal);
+        }
         assertFalse(l.getTerminal().isConnected());
     }
 }

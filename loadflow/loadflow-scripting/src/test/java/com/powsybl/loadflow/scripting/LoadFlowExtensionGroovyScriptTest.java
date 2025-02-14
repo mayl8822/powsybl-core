@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.scripting;
 
@@ -11,26 +12,26 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManager;
 import com.powsybl.iidm.network.VariantManagerConstants;
 import com.powsybl.loadflow.LoadFlowParameters;
-import com.powsybl.scripting.AbstractGroovyScriptTest;
 import com.powsybl.scripting.groovy.GroovyScriptExtension;
+import com.powsybl.scripting.test.AbstractGroovyScriptTest;
 import groovy.lang.Binding;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class LoadFlowExtensionGroovyScriptTest extends AbstractGroovyScriptTest {
+class LoadFlowExtensionGroovyScriptTest extends AbstractGroovyScriptTest {
 
     private Network fooNetwork;
     private ComputationManager computationManager;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         // create variant manager
         VariantManager variantManager = Mockito.mock(VariantManager.class);
         Mockito.when(variantManager.getWorkingVariantId())
@@ -69,7 +70,7 @@ public class LoadFlowExtensionGroovyScriptTest extends AbstractGroovyScriptTest 
     }
 
     @Test
-    public void test() {
+    void test() {
         doTest();
     }
 }

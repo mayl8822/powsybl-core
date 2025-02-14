@@ -3,22 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion.elements;
 
 import com.powsybl.cgmes.conversion.Context;
+import com.powsybl.cgmes.conversion.Conversion;
+import com.powsybl.cgmes.model.CgmesNames;
 import com.powsybl.cgmes.model.CgmesTerminal;
 import com.powsybl.cgmes.model.PowerFlow;
 import com.powsybl.iidm.network.*;
 import com.powsybl.triplestore.api.PropertyBag;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 public class SvInjectionConversion extends AbstractIdentifiedObjectConversion {
 
     public SvInjectionConversion(PropertyBag p, Context context) {
-        super("SvInjection", p, context);
+        super(CgmesNames.SV_INJECTION, p, context);
         String tn = p.getId("TopologicalNode");
         if (!findVoltageLevel(tn)) {
             return;
@@ -33,8 +36,8 @@ public class SvInjectionConversion extends AbstractIdentifiedObjectConversion {
     @Override
     public boolean valid() {
         return voltageLevel != null
-                && ((context.nodeBreaker() && node != -1)
-                || (!context.nodeBreaker() && voltageLevel.getBusBreakerView().getBus(busId) != null));
+                && (context.nodeBreaker() && node != -1
+                    || !context.nodeBreaker() && voltageLevel.getBusBreakerView().getBus(busId) != null);
     }
 
     @Override
@@ -59,6 +62,12 @@ public class SvInjectionConversion extends AbstractIdentifiedObjectConversion {
             load.getTerminal().setP(p0);
             load.getTerminal().setQ(q0);
         }
+
+        addSpecificProperties(load);
+    }
+
+    private static void addSpecificProperties(Load load) {
+        load.setProperty(Conversion.PROPERTY_CGMES_ORIGINAL_CLASS, CgmesNames.SV_INJECTION);
     }
 
     private void connect(LoadAdder adder) {
@@ -74,8 +83,8 @@ public class SvInjectionConversion extends AbstractIdentifiedObjectConversion {
         if (associatedTerminal == null) {
             cgmesTerminal = context.cgmes().terminal(context.terminalMapping().findCgmesTerminalFromTopologicalNode(topologicalNode));
             if (cgmesTerminal == null || context.cgmes().voltageLevel(cgmesTerminal, context.nodeBreaker()) == null) {
-                context.invalid(id, () ->
-                        String.format("The CGMES terminal and/or the voltage level associated to the topological node %slinked to the SV injection %s is missing",
+                context.missing(id, () ->
+                        String.format("The CGMES terminal and/or the voltage level associated to the topological node %s linked to the SV injection %s is missing",
                                 topologicalNode, id));
                 return false;
             }
@@ -100,7 +109,7 @@ public class SvInjectionConversion extends AbstractIdentifiedObjectConversion {
     }
 
     private void findNodeFromUnmappedCgmesTerminal() {
-        node = context.nodeMapping().iidmNodeForTerminal(cgmesTerminal, voltageLevel);
+        node = context.nodeMapping().iidmNodeForTerminal(cgmesTerminal, false, voltageLevel);
     }
 
     private void findNodeFromMappedCgmesTerminal(Terminal associatedTerminal, String topologicalNode) {

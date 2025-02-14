@@ -3,10 +3,10 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cim;
 
-import com.google.common.collect.ImmutableSet;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.exceptions.UncheckedXmlStreamException;
 import com.powsybl.commons.util.StringAnonymizer;
@@ -29,7 +29,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class CimAnonymizer {
 
@@ -51,9 +51,9 @@ public class CimAnonymizer {
         }
     }
 
-    private static final Set<String> NAMES_TO_EXCLUDE = ImmutableSet.of("PATL", "TATL");
+    private static final Set<String> NAMES_TO_EXCLUDE = Set.of("PATL", "TATL");
 
-    private static final Set<String> DESCRIPTIONS_TO_EXCLUDE = ImmutableSet.of();
+    private static final Set<String> DESCRIPTIONS_TO_EXCLUDE = Set.of();
 
     private static final String RDF_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
@@ -63,7 +63,7 @@ public class CimAnonymizer {
     private static final QName RDF_RESOURCE = new QName(RDF_URI, "resource");
     private static final QName RDF_ABOUT = new QName(RDF_URI, "about");
 
-    private static class XmlStaxContext {
+    private static final class XmlStaxContext {
         private final XMLInputFactory inputFactory = XMLInputFactory.newFactory();
         private final XMLOutputFactory outputFactory = XMLOutputFactory.newFactory();
         private final XMLEventFactory eventFactory = XMLEventFactory.newInstance();
@@ -141,7 +141,7 @@ public class CimAnonymizer {
                 return xmlStaxContext.eventFactory.createAttribute(attribute.getName(), dictionary.anonymize(attribute.getValue()));
             } else if (attribute.getName().equals(RDF_RESOURCE) || attribute.getName().equals(RDF_ABOUT)) {
                 // skip outside graph rdf:ID references
-                AttributeValue value  = AttributeValue.parseValue(attribute);
+                AttributeValue value = AttributeValue.parseValue(attribute);
                 if ((value.getNsUri() == null || !value.getNsUri().matches(CIM_URI_PATTERN)) &&
                         (rdfIdValues == null || rdfIdValues.contains(value.get()))) {
                     return xmlStaxContext.eventFactory.createAttribute(attribute.getName(), value.toString(dictionary));
@@ -150,7 +150,7 @@ public class CimAnonymizer {
                     return null;
                 }
             } else {
-                throw new AssertionError("Unknown attribute " + attribute.getName());
+                throw new IllegalStateException("Unknown attribute " + attribute.getName());
             }
         }
 
@@ -292,7 +292,9 @@ public class CimAnonymizer {
         StringAnonymizer dictionary = loadDic(dictionaryFile);
 
         // anonymize each file of the archive
-        try (ZipFile zipFileData = new ZipFile(Files.newByteChannel(cimZipFile))) {
+        try (ZipFile zipFileData = ZipFile.builder()
+            .setSeekableByteChannel(Files.newByteChannel(cimZipFile))
+            .get()) {
 
             Set<String> rdfIdValues = skipExternalRef ? getRdfIdValues(zipFileData) : null;
 

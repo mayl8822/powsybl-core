@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.distributed;
 
@@ -13,9 +14,9 @@ import com.powsybl.computation.SimpleCommand;
 import com.powsybl.security.LimitViolationType;
 import org.apache.commons.lang3.SystemUtils;
 import org.assertj.core.api.Assertions;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,29 +24,29 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
-public class SecurityAnalysisCommandOptionsTest {
+class SecurityAnalysisCommandOptionsTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SecurityAnalysisCommandOptionsTest.class);
 
     private FileSystem fileSystem;
 
-    @Before
-    public void createFileSystem() {
+    @BeforeEach
+    void createFileSystem() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
     }
 
-    @After
-    public void closeFileSystem() throws IOException {
+    @AfterEach
+    void closeFileSystem() throws IOException {
         fileSystem.close();
     }
 
     @Test
-    public void test() {
+    void test() {
         SecurityAnalysisCommandOptions options = new SecurityAnalysisCommandOptions();
 
         Assertions.assertThatNullPointerException().isThrownBy(options::toCommand);
@@ -104,7 +105,7 @@ public class SecurityAnalysisCommandOptionsTest {
     }
 
     @Test
-    public void testIndexed() {
+    void testIndexed() {
         SecurityAnalysisCommandOptions options = new SecurityAnalysisCommandOptions()
                     .caseFile(fileSystem.getPath("test.xiidm"))
                     .taskBasedOnIndex(24)
@@ -121,6 +122,30 @@ public class SecurityAnalysisCommandOptionsTest {
                         "--output-file=output_4.json",
                         "--output-format=JSON",
                         "--log-file=log_4.zip");
+    }
+
+    @Test
+    void testStrategies() {
+        SecurityAnalysisCommandOptions options = new SecurityAnalysisCommandOptions()
+                .caseFile(fileSystem.getPath("test.xiidm"))
+                .parametersFile(fileSystem.getPath("params.json"))
+                .actionsFile(fileSystem.getPath("actions.json"))
+                .strategiesFile(fileSystem.getPath("strategies.json"))
+                .limitReductionsFile(fileSystem.getPath("limit-reductions.json"));
+
+        SimpleCommand cmd = options.toCommand();
+        String expectedDefaultProgram = SystemUtils.IS_OS_WINDOWS ? "itools.bat" : "itools";
+        assertEquals(expectedDefaultProgram, cmd.getProgram());
+        assertEquals("security-analysis", cmd.getId());
+        List<String> args = cmd.getArgs(0);
+        Assertions.assertThat(args)
+                .containsExactly("security-analysis",
+                        "--case-file=test.xiidm",
+                        "--parameters-file=params.json",
+                        "--actions-file=actions.json",
+                        "--strategies-file=strategies.json",
+                        "--limit-reductions-file=limit-reductions.json");
+
     }
 
 }

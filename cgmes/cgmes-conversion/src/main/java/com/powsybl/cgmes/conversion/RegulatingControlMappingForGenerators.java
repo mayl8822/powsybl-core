@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion;
 
@@ -16,13 +17,15 @@ import com.powsybl.iidm.network.Terminal;
 import com.powsybl.iidm.network.extensions.CoordinatedReactiveControlAdder;
 import com.powsybl.iidm.network.extensions.RemoteReactivePowerControlAdder;
 import com.powsybl.triplestore.api.PropertyBag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * @author José Antonio Marqués <marquesja at aia.es>
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
 
 public class RegulatingControlMappingForGenerators {
@@ -70,7 +73,7 @@ public class RegulatingControlMappingForGenerators {
 
         String controlId = rc.regulatingControlId;
         if (controlId == null) {
-            context.missing("Regulating control Id not defined");
+            LOG.trace("Regulating control Id not present for generator {}", gen.getId());
             return;
         }
 
@@ -108,11 +111,8 @@ public class RegulatingControlMappingForGenerators {
             targetV = control.targetValue;
         }
 
-        boolean voltageRegulatorOn = false;
         // Regulating control is enabled AND this equipment participates in regulating control
-        if (control.enabled && eqControlEnabled) {
-            voltageRegulatorOn = true;
-        }
+        boolean voltageRegulatorOn = control.enabled && eqControlEnabled;
 
         gen.setRegulatingTerminal(regulatingTerminal)
             .setTargetV(targetV)
@@ -124,7 +124,7 @@ public class RegulatingControlMappingForGenerators {
                     .withQPercent(qPercent)
                     .add();
         }
-        gen.setProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "RegulatingControl", controlId);
+        gen.setProperty(Conversion.PROPERTY_REGULATING_CONTROL, controlId);
 
         return true;
     }
@@ -161,12 +161,12 @@ public class RegulatingControlMappingForGenerators {
                     .add();
         }
 
-        gen.setProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "RegulatingControl", controlId);
+        gen.setProperty(Conversion.PROPERTY_REGULATING_CONTROL, controlId);
 
         return true;
     }
 
-    private static class CgmesRegulatingControlForGenerator {
+    private static final class CgmesRegulatingControlForGenerator {
         String regulatingControlId;
         double qPercent;
         boolean controlEnabled;
@@ -175,4 +175,6 @@ public class RegulatingControlMappingForGenerators {
     private final RegulatingControlMapping parent;
     private final Map<String, CgmesRegulatingControlForGenerator> mapping;
     private final Context context;
+
+    private static final Logger LOG = LoggerFactory.getLogger(RegulatingControlMappingForGenerators.class);
 }

@@ -3,11 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 public interface Boundary {
 
@@ -32,24 +33,19 @@ public interface Boundary {
     double getQ();
 
     /**
-     * A Boundary could be associated with one side of a branch to determine P and Q.
-     * Get the branch side the boundary refers to.
+     * Get the current in A at the fictitious boundary terminal.
      */
-    default Branch.Side getSide() {
-        return null;
-    }
+    double getI();
 
     /**
-     * Get the equipment the boundary is associated to.
+     * Get the danglingLine the boundary is associated to.
      */
-    default Connectable getConnectable() {
-        return null;
-    }
+    DanglingLine getDanglingLine();
 
     /**
      * Get the voltage level at network side.
      */
-    default VoltageLevel getVoltageLevel() {
-        return null;
+    default VoltageLevel getNetworkSideVoltageLevel() {
+        return getDanglingLine().getTerminal().getVoltageLevel();
     }
 }

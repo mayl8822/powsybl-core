@@ -3,12 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.shortcircuit.json;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
@@ -25,15 +25,16 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import static com.powsybl.security.json.LimitViolationDeserializer.VIOLATION_LOCATION_SUPPORT;
+
 /**
  *
- * @author Teofil-Calin BANC <teofil-calin.banc at rte-france.com>
+ * @author Teofil-Calin BANC {@literal <teofil-calin.banc at rte-france.com>}
  */
 public class ShortCircuitAnalysisResultDeserializer extends StdDeserializer<ShortCircuitAnalysisResult> {
 
@@ -46,32 +47,27 @@ public class ShortCircuitAnalysisResultDeserializer extends StdDeserializer<Shor
 
     @Override
     public ShortCircuitAnalysisResult deserialize(JsonParser parser, DeserializationContext ctx) throws IOException {
+        String version = null;
         List<FaultResult> faultResults = null;
         List<Extension<ShortCircuitAnalysisResult>> extensions = Collections.emptyList();
 
         while (parser.nextToken() != JsonToken.END_OBJECT) {
-            switch (parser.getCurrentName()) {
-                case "version":
-                    parser.nextToken(); // skip
-                    break;
-
-                case "faultResults":
+            switch (parser.currentName()) {
+                case "version" -> {
                     parser.nextToken();
-                    faultResults = parser.readValueAs(new TypeReference<ArrayList<FaultResult>>() {
-                    });
-                    break;
-
-                case "extensions":
+                    version = parser.readValueAs(String.class);
+                    ctx.setAttribute(VIOLATION_LOCATION_SUPPORT, version.compareTo("1.3") >= 0);
+                }
+                case "faultResults" -> faultResults = new FaultResultDeserializer().deserialize(parser, ctx, version);
+                case "extensions" -> {
                     parser.nextToken();
                     extensions = JsonUtil.readExtensions(parser, ctx, SUPPLIER.get());
-                    break;
-
-                default:
-                    throw new AssertionError("Unexpected field: " + parser.getCurrentName());
+                }
+                default -> throw new IllegalStateException("Unexpected field: " + parser.currentName());
             }
         }
-
         ShortCircuitAnalysisResult result = new ShortCircuitAnalysisResult(faultResults);
+
         SUPPLIER.get().addExtensions(result, extensions);
 
         return result;

@@ -3,21 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.contingency;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class ContingencyContextTest {
+class ContingencyContextTest {
 
     @Test
-    public void test() {
+    void test() {
         ContingencyContext context = new ContingencyContext("c1", ContingencyContextType.SPECIFIC);
         assertEquals("ContingencyContext(contingencyId='c1', contextType=SPECIFIC)", context.toString());
+    }
+
+    @Test
+    void testOnlyContingencies() {
+        ContingencyContext context = ContingencyContext.create(null, ContingencyContextType.ONLY_CONTINGENCIES);
+        assertEquals("ContingencyContext(contingencyId='', contextType=ONLY_CONTINGENCIES)", context.toString());
     }
 }

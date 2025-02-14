@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.api;
@@ -21,13 +22,23 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public abstract class AbstractPowsyblTripleStore implements TripleStore {
 
-    public AbstractPowsyblTripleStore() {
+    protected AbstractPowsyblTripleStore() {
+        this(new TripleStoreOptions());
+    }
+
+    protected AbstractPowsyblTripleStore(TripleStoreOptions options) {
+        this.options = options;
         queryPrefixes = new HashMap<>();
         defineQueryPrefix("rdf", RDF_NAMESPACE);
+    }
+
+    @Override
+    public TripleStoreOptions getOptions() {
+        return options;
     }
 
     protected static String createRdfId() {
@@ -123,7 +134,9 @@ public abstract class AbstractPowsyblTripleStore implements TripleStore {
         private String line = "";
     }
 
-    private Map<String, String> queryPrefixes;
+    private final TripleStoreOptions options;
+    private final Map<String, String> queryPrefixes;
+
     private String cachedQueryPrefixes;
 
     private static final String NAMESPACE_FOR_CONTEXTS = "contexts:";

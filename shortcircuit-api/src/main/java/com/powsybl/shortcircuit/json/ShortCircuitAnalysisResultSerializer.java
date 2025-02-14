@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.shortcircuit.json;
 
@@ -14,12 +15,12 @@ import com.powsybl.shortcircuit.ShortCircuitAnalysisResult;
 
 import java.io.IOException;
 
+import static com.powsybl.shortcircuit.ShortCircuitAnalysisResult.VERSION;
+
 /**
- * @author Teofil-Calin BANC <teofil-calin.banc at rte-france.com>
+ * @author Teofil-Calin BANC {@literal <teofil-calin.banc at rte-france.com>}
  */
 public class ShortCircuitAnalysisResultSerializer extends StdSerializer<ShortCircuitAnalysisResult> {
-
-    private static final String VERSION = "1.0";
 
     ShortCircuitAnalysisResultSerializer() {
         super(ShortCircuitAnalysisResult.class);
@@ -30,7 +31,7 @@ public class ShortCircuitAnalysisResultSerializer extends StdSerializer<ShortCir
         jsonGenerator.writeStartObject();
 
         jsonGenerator.writeStringField("version", VERSION);
-        jsonGenerator.writeObjectField("faultResults", result.getFaultResults());
+        serializerProvider.defaultSerializeField("faultResults", result.getFaultResults(), jsonGenerator);
 
         JsonUtil.writeExtensions(result, jsonGenerator, serializerProvider);
 

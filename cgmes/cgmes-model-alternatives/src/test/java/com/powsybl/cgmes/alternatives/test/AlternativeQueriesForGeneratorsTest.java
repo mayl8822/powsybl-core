@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.alternatives.test;
@@ -10,24 +11,24 @@ package com.powsybl.cgmes.alternatives.test;
 import java.io.IOException;
 import java.util.function.Consumer;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.powsybl.cgmes.alternatives.test.AlternativeQueriesTester.Expected;
 import com.powsybl.cgmes.conformity.CgmesConformity1Catalog;
-import com.powsybl.cgmes.model.test.TestGridModel;
+import com.powsybl.cgmes.model.GridModelReference;
 import com.powsybl.triplestore.api.PropertyBags;
 import com.powsybl.triplestore.api.QueryCatalog;
 import com.powsybl.triplestore.api.TripleStoreFactory;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class AlternativeQueriesForGeneratorsTest {
+class AlternativeQueriesForGeneratorsTest {
 
-    @BeforeClass
-    public static void setUp()  {
-        TestGridModel model = CgmesConformity1Catalog.smallBusBranch();
+    @BeforeAll
+    static void setUp() {
+        GridModelReference model = CgmesConformity1Catalog.smallBusBranch();
         Expected expected = new Expected()
                 .resultSize(19)
                 .propertyCount("regulatingControlTargetValue", 19)
@@ -61,12 +62,12 @@ public class AlternativeQueriesForGeneratorsTest {
     }
 
     @Test
-    public void usingGraphClauses() throws IOException {
+    void usingGraphClauses() throws IOException {
         testerWorkingWithNestedGraphClauses.test("usingGraphClauses");
     }
 
     @Test
-    public void noGraphClauses() throws IOException {
+    void noGraphClauses() throws IOException {
         tester.test("noGraphClauses");
     }
 

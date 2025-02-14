@@ -3,73 +3,91 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.json;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.contingency.Contingency;
-import com.powsybl.security.LimitViolationsResult;
-import com.powsybl.security.results.PostContingencyResult;
-import com.powsybl.security.results.BranchResult;
-import com.powsybl.security.results.BusResult;
-import com.powsybl.security.results.ThreeWindingsTransformerResult;
+import com.powsybl.security.PostContingencyComputationStatus;
+import com.powsybl.security.results.*;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
+import java.util.Objects;
+
+import static com.powsybl.security.json.SecurityAnalysisResultDeserializer.SOURCE_VERSION_ATTRIBUTE;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-class PostContingencyResultDeserializer extends StdDeserializer<PostContingencyResult> {
+public class PostContingencyResultDeserializer extends AbstractContingencyResultDeserializer<PostContingencyResult> {
 
-    PostContingencyResultDeserializer() {
+    protected static final String CONTEXT_NAME = "PostContingencyResult";
+
+    public PostContingencyResultDeserializer() {
         super(PostContingencyResult.class);
+    }
+
+    private static class ParsingContext {
+        Contingency contingency = null;
+        PostContingencyComputationStatus status = null;
+        ConnectivityResult connectivityResult = null;
     }
 
     @Override
     public PostContingencyResult deserialize(JsonParser parser, DeserializationContext deserializationContext) throws IOException {
-        Contingency contingency = null;
-        LimitViolationsResult limitViolationsResult = null;
-        List<BranchResult> branchResults = Collections.emptyList();
-        List<BusResult> busResults = Collections.emptyList();
-        List<ThreeWindingsTransformerResult> threeWindingsTransformerResults = Collections.emptyList();
-
-        while (parser.nextToken() != JsonToken.END_OBJECT) {
-            switch (parser.getCurrentName()) {
+        String version = JsonUtil.getSourceVersion(deserializationContext, SOURCE_VERSION_ATTRIBUTE);
+        if (version == null) {  // assuming current version...
+            version = SecurityAnalysisResultSerializer.VERSION;
+        }
+        final String finalVersion = version;
+        ParsingContext parsingContext = new ParsingContext();
+        AbstractContingencyResultDeserializer.ParsingContext commonParsingContext = new AbstractContingencyResultDeserializer.ParsingContext();
+        JsonUtil.parsePolymorphicObject(parser, name -> {
+            boolean found = deserializeCommonAttributes(parser, commonParsingContext, name, deserializationContext, finalVersion, CONTEXT_NAME);
+            if (found) {
+                return true;
+            }
+            switch (parser.currentName()) {
                 case "contingency":
                     parser.nextToken();
-                    contingency = parser.readValueAs(Contingency.class);
-                    break;
-
-                case "limitViolationsResult":
+                    parsingContext.contingency = JsonUtil.readValue(deserializationContext, parser, Contingency.class);
+                    return true;
+                case "status":
                     parser.nextToken();
-                    limitViolationsResult = parser.readValueAs(LimitViolationsResult.class);
-                    break;
-                case "branchResults":
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: status",
+                            finalVersion, "1.3");
+                    parsingContext.status = JsonUtil.readValue(deserializationContext, parser, PostContingencyComputationStatus.class);
+                    return true;
+                case "connectivityResult":
                     parser.nextToken();
-                    branchResults = parser.readValueAs(new TypeReference<List<BranchResult>>() {
-                    });
-                    break;
-                case "busResults":
-                    parser.nextToken();
-                    busResults = parser.readValueAs(new TypeReference<List<BusResult>>() {
-                    });
-                    break;
-                case "threeWindingsTransformerResults":
-                    parser.nextToken();
-                    threeWindingsTransformerResults = parser.readValueAs(new TypeReference<List<ThreeWindingsTransformerResult>>() {
-                    });
-                    break;
+                    JsonUtil.assertGreaterOrEqualThanReferenceVersion(CONTEXT_NAME, "Tag: connectivityResult",
+                            finalVersion, "1.4");
+                    parsingContext.connectivityResult = JsonUtil.readValue(deserializationContext, parser, ConnectivityResult.class);
+                    return true;
                 default:
-                    throw new AssertionError("Unexpected field: " + parser.getCurrentName());
+                    return false;
             }
+        });
+
+        if (parsingContext.connectivityResult == null) {
+            parsingContext.connectivityResult = new ConnectivityResult(0, 0, 0.0, 0.0, Collections.emptySet());
         }
 
-        return new PostContingencyResult(contingency, limitViolationsResult, branchResults, busResults, threeWindingsTransformerResults);
+        if (version.compareTo("1.3") < 0) {
+            Objects.requireNonNull(commonParsingContext.limitViolationsResult);
+            parsingContext.status = commonParsingContext.limitViolationsResult.isComputationOk() ? PostContingencyComputationStatus.CONVERGED : PostContingencyComputationStatus.FAILED;
+        }
+        if (commonParsingContext.networkResult != null) {
+            return new PostContingencyResult(parsingContext.contingency, parsingContext.status, commonParsingContext.limitViolationsResult,
+                    commonParsingContext.networkResult, parsingContext.connectivityResult);
+        } else {
+            return new PostContingencyResult(parsingContext.contingency, parsingContext.status, commonParsingContext.limitViolationsResult,
+                    commonParsingContext.branchResults, commonParsingContext.busResults, commonParsingContext.threeWindingsTransformerResults,
+                    parsingContext.connectivityResult);
+        }
     }
 }

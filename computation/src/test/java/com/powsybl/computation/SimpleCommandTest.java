@@ -3,23 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
 import com.google.common.collect.ImmutableList;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class SimpleCommandTest {
+class SimpleCommandTest {
 
     @Test
-    public void test() {
+    void test() {
         SimpleCommand cmd1 = new SimpleCommandBuilder()
                 .id("cmd1")
                 .program("prg1")
@@ -40,7 +42,7 @@ public class SimpleCommandTest {
     }
 
     @Test
-    public void test2() {
+    void test2() {
         SimpleCommand cmd1 = new SimpleCommandBuilder()
                 .id("cmd1")
                 .program("prg1")
@@ -51,7 +53,7 @@ public class SimpleCommandTest {
     }
 
     @Test
-    public void testInhomogeneousArgs() {
+    void testInhomogeneousArgs() {
         SimpleCommand cmd1 = new SimpleCommandBuilder()
                 .id("cmd1")
                 .program("prg1")
@@ -64,7 +66,7 @@ public class SimpleCommandTest {
     }
 
     @Test
-    public void testOptions() {
+    void testOptions() {
         SimpleCommand cmd1 = new SimpleCommandBuilder()
                 .id("cmd1")
                 .program("prg1")
@@ -77,26 +79,26 @@ public class SimpleCommandTest {
         assertEquals(ImmutableList.of("--opt1=val1", "--opt2=val2-3", "--flag2"), cmd1.getArgs(3));
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorTimeout() {
-        new SimpleCommandBuilder()
+    @Test
+    void testErrorTimeout() {
+        assertThrows(RuntimeException.class, () -> new SimpleCommandBuilder()
                 .id("cmd1")
                 .program("prg1")
                 .timeout(-34)
-                .build();
+                .build());
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorId() {
-        new SimpleCommandBuilder()
+    @Test
+    void testErrorId() {
+        assertThrows(RuntimeException.class, () -> new SimpleCommandBuilder()
                 .program("prg1")
-                .build();
+                .build());
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorProgram() {
-        new SimpleCommandBuilder()
+    @Test
+    void testErrorProgram() {
+        assertThrows(RuntimeException.class, () -> new SimpleCommandBuilder()
                 .id("cmd1")
-                .build();
+                .build());
     }
 }

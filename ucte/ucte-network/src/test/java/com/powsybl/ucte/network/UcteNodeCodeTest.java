@@ -3,22 +3,23 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network;
 
 import com.google.common.testing.EqualsTester;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.powsybl.ucte.network.UcteNodeCode.isUcteNodeId;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class UcteNodeCodeTest {
+class UcteNodeCodeTest {
 
     @Test
-    public void test() {
+    void test() {
         UcteNodeCode node = new UcteNodeCode(UcteCountryCode.FR, "SUBST", UcteVoltageLevelCode.VL_380, '1');
         assertEquals("FSUBST11", node.toString());
 
@@ -44,7 +45,7 @@ public class UcteNodeCodeTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         UcteNodeCode node1 = new UcteNodeCode(UcteCountryCode.FR, "SUBST", UcteVoltageLevelCode.VL_380, '1');
         UcteNodeCode node2 = new UcteNodeCode(UcteCountryCode.FR, "SUBST", UcteVoltageLevelCode.VL_380, '1');
 
@@ -60,7 +61,7 @@ public class UcteNodeCodeTest {
     }
 
     @Test
-    public void isUcteNodeIdTest() {
+    void isUcteNodeIdTest() {
         assertTrue(isUcteNodeId("B_SU1_11"));
         assertTrue(isUcteNodeId("B_SU1_1 "));
         assertTrue(isUcteNodeId("7efG8411"));

@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
@@ -10,14 +11,14 @@ import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.NetworkBusBreakerTest1Factory;
 import com.powsybl.iidm.network.test.NetworkTest1Factory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class RemoveSwitchTest {
+class RemoveSwitchTest {
 
     private static boolean checkNodes(Switch sw) {
         try {
@@ -44,7 +45,7 @@ public class RemoveSwitchTest {
     }
 
     @Test
-    public void nodeBreakerRemoveSwitchTest() {
+    void nodeBreakerRemoveSwitchTest() {
         Network network = NetworkTest1Factory.create();
         Switch sw = network.getSwitch("load1Breaker1");
         checkNodes(sw);
@@ -67,7 +68,7 @@ public class RemoveSwitchTest {
     }
 
     @Test
-    public void nodeBreakerRemoveVoltageLevelTest() {
+    void nodeBreakerRemoveVoltageLevelTest() {
         Network network = NetworkTest1Factory.create();
         Switch sw = network.getSwitch("load1Breaker1");
         checkNodes(sw);
@@ -93,7 +94,7 @@ public class RemoveSwitchTest {
     }
 
     @Test
-    public void busBreakerRemoveSwitchTest() {
+    void busBreakerRemoveSwitchTest() {
         Network network = NetworkBusBreakerTest1Factory.create();
         Switch sw = network.getSwitch("voltageLevel1Breaker1");
         checkBuses(sw);
@@ -111,7 +112,7 @@ public class RemoveSwitchTest {
     }
 
     @Test
-    public void busBreakerRemoveVoltageLevelTest() {
+    void busBreakerRemoveVoltageLevelTest() {
         Network network = NetworkBusBreakerTest1Factory.create();
         Switch sw = network.getSwitch("voltageLevel1Breaker1");
         checkBuses(sw);

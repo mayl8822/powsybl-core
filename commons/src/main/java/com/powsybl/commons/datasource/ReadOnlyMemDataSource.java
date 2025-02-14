@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.datasource;
 
@@ -20,7 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * @author Giovanni Ferrari <giovanni.ferrari@techrain.it>
+ * @author Giovanni Ferrari {@literal <giovanni.ferrari@techrain.it>}
  */
 public class ReadOnlyMemDataSource implements ReadOnlyDataSource {
 
@@ -64,6 +65,16 @@ public class ReadOnlyMemDataSource implements ReadOnlyDataSource {
     @Override
     public boolean exists(String suffix, String ext) throws IOException {
         return exists(DataSourceUtil.getFileName(baseName, suffix, ext));
+    }
+
+    /**
+     * {@inheritDoc}
+     * As a ReadOnlyMemDataSource does not have a main extension, this method always returns true
+     * @return true
+     */
+    @Override
+    public boolean isDataExtension(String ext) {
+        return true;
     }
 
     @Override

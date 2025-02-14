@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.hvdc;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.model.CgmesDcTerminal;
 import com.powsybl.cgmes.model.CgmesModel;
 import com.powsybl.cgmes.model.CgmesNames;
@@ -24,8 +26,8 @@ import com.powsybl.triplestore.api.PropertyBags;
 
 /**
  *
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 class Adjacency {
 
@@ -35,7 +37,7 @@ class Adjacency {
 
     private final Map<String, List<Adjacent>> adjacency;
 
-    Adjacency(CgmesModel cgmesModel, AcDcConverterNodes acDcConverterNodes) {
+    Adjacency(CgmesModel cgmesModel, Context context, AcDcConverterNodes acDcConverterNodes) {
         adjacency = new HashMap<>();
         cgmesModel.dcLineSegments().forEach(dcls -> computeDcLineSegmentAdjacency(cgmesModel, dcls));
 
@@ -43,15 +45,17 @@ class Adjacency {
             .forEach((key, value) -> computeAcDcConverterAdjacency(value.acNode,
                 value.dcNode));
 
-        cgmesModel.groupedTransformerEnds().forEach((t, ends) -> {
-            if (ends.size() == 2) {
-                computeTwoWindingsTransformerAdjacency(cgmesModel, ends);
-            } else if (ends.size() == 3) {
-                computeThreeWindingsTransformerAdjacency(cgmesModel, ends);
-            } else {
-                throw new PowsyblException(String.format("Unexpected TransformerEnds: ends %d", ends.size()));
-            }
-        });
+        cgmesModel.transformers().stream()
+                .map(t -> context.transformerEnds(t.getId("PowerTransformer")))
+                .forEach(ends -> {
+                    if (ends.size() == 2) {
+                        computeTwoWindingsTransformerAdjacency(cgmesModel, ends);
+                    } else if (ends.size() == 3) {
+                        computeThreeWindingsTransformerAdjacency(cgmesModel, ends);
+                    } else {
+                        throw new PowsyblException(String.format("Unexpected TransformerEnds: ends %d", ends.size()));
+                    }
+                });
     }
 
     private void computeDcLineSegmentAdjacency(CgmesModel cgmesModel, PropertyBag equipment) {

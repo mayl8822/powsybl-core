@@ -3,20 +3,18 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.extensions;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.util.ServiceLoaderCache;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
 public final class ExtensionProviders<T extends ExtensionProvider> {
 
@@ -48,7 +46,8 @@ public final class ExtensionProviders<T extends ExtensionProvider> {
         Objects.requireNonNull(clazz);
         Objects.requireNonNull(categoryName);
 
-        providers = new ServiceLoaderCache<>(clazz).getServices().stream()
+        List<T> services = new ServiceLoaderCache<>(clazz).getServices();
+        providers = services.stream()
                 .filter(s -> s.getCategoryName().equals(categoryName) && (extensionNames == null || extensionNames.contains(s.getExtensionName())))
                 .collect(Collectors.toMap(T::getExtensionName, e -> e));
     }

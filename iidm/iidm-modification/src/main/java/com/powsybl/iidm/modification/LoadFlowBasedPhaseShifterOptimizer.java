@@ -3,11 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.modification;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.computation.ComputationManager;
+import com.powsybl.iidm.network.LoadingLimits;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.TwoWindingsTransformer;
 import com.powsybl.loadflow.LoadFlow;
@@ -20,7 +22,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class LoadFlowBasedPhaseShifterOptimizer implements PhaseShifterOptimizer {
 
@@ -57,7 +59,7 @@ public class LoadFlowBasedPhaseShifterOptimizer implements PhaseShifterOptimizer
     }
 
     private static double getLimit(TwoWindingsTransformer phaseShifter) {
-        return phaseShifter.getCurrentLimits1().getPermanentLimit();
+        return phaseShifter.getCurrentLimits1().map(LoadingLimits::getPermanentLimit).orElseThrow(PowsyblException::new);
     }
 
     @Override
@@ -79,7 +81,7 @@ public class LoadFlowBasedPhaseShifterOptimizer implements PhaseShifterOptimizer
         try {
             network.getVariantManager().setWorkingVariant(tmpStateId);
             runLoadFlow(network, tmpStateId);
-            if (phaseShifter.getTerminal1().getI() >= phaseShifter.getCurrentLimits1().getPermanentLimit()) {
+            if (phaseShifter.getTerminal1().getI() >= phaseShifter.getCurrentLimits1().map(LoadingLimits::getPermanentLimit).orElseThrow(PowsyblException::new)) {
                 throw new PowsyblException("Phase shifter already overloaded");
             }
             int tapPosInc = 1; // start by incrementing tap +1
@@ -116,7 +118,7 @@ public class LoadFlowBasedPhaseShifterOptimizer implements PhaseShifterOptimizer
                 runLoadFlow(network, tmpStateId);
                 // check there phase shifter is not overloaded
                 if (getI(phaseShifter) >= limit) {
-                    throw new AssertionError("Phase shifter should not be overload");
+                    throw new IllegalStateException("Phase shifter should not be overload");
                 }
             }
         } finally {

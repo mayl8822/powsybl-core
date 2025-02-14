@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.json;
 
@@ -14,21 +15,20 @@ import com.powsybl.security.results.PreContingencyResult;
 import java.io.IOException;
 
 /**
- * @author Etienne Lesot <etienne.lesot at rte-france.com>
+ * @author Etienne Lesot {@literal <etienne.lesot at rte-france.com>}
  */
-class PreContingencyResultSerializer extends StdSerializer<PreContingencyResult> {
+public class PreContingencyResultSerializer extends StdSerializer<PreContingencyResult> {
 
-    PreContingencyResultSerializer() {
+    public PreContingencyResultSerializer() {
         super(PreContingencyResult.class);
     }
 
     @Override
     public void serialize(PreContingencyResult preContingencyResult, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
         jsonGenerator.writeStartObject();
-        jsonGenerator.writeObjectField("limitViolationsResult", preContingencyResult.getLimitViolationsResult());
-        jsonGenerator.writeObjectField("branchResults", preContingencyResult.getPreContingencyBranchResults());
-        jsonGenerator.writeObjectField("busResults", preContingencyResult.getPreContingencyBusResults());
-        jsonGenerator.writeObjectField("threeWindingsTransformerResults", preContingencyResult.getPreContingencyThreeWindingsTransformerResults());
+        serializerProvider.defaultSerializeField("status", preContingencyResult.getStatus(), jsonGenerator);
+        serializerProvider.defaultSerializeField("limitViolationsResult", preContingencyResult.getLimitViolationsResult(), jsonGenerator);
+        serializerProvider.defaultSerializeField("networkResult", preContingencyResult.getNetworkResult(), jsonGenerator);
         jsonGenerator.writeEndObject();
     }
 }

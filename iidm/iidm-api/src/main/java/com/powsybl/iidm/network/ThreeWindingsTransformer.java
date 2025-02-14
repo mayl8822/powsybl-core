@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network;
 
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
  * two or more regulating controls are enabled.
  *
  * <p>
- *  Characteristics
+ * Characteristics
  * </p>
  * <table style="border: 1px solid black; border-collapse: collapse">
  *     <thead>
@@ -104,24 +105,18 @@ import java.util.stream.Stream;
  * <p>
  * To create a three windings transformer, see {@link ThreeWindingsTransformerAdder}
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  * @see RatioTapChanger
  * @see PhaseTapChanger
  * @see ThreeWindingsTransformerAdder
  */
 public interface ThreeWindingsTransformer extends Connectable<ThreeWindingsTransformer> {
 
-    enum Side {
-        ONE,
-        TWO,
-        THREE
-    }
-
     /**
      * Transformer leg
      *
      * <p>
-     *     Characteristics
+     * Characteristics
      * </p>
      *
      * <table style="border: 1px solid black; border-collapse: collapse">
@@ -289,14 +284,26 @@ public interface ThreeWindingsTransformer extends Connectable<ThreeWindingsTrans
         default Leg setRatedS(double ratedS) {
             throw new UnsupportedOperationException();
         }
+
+        /**
+         * Get side of the leg on the three windings transformer
+         */
+        ThreeSides getSide();
+
+        Optional<? extends LoadingLimits> getLimits(LimitType type);
+
+        /**
+         * Get the associated three-windings transformer.
+         */
+        ThreeWindingsTransformer getTransformer();
     }
 
-    Terminal getTerminal(Side side);
+    Terminal getTerminal(ThreeSides side);
 
     /**
      * Get the side the terminal is connected to.
      */
-    Side getSide(Terminal terminal);
+    ThreeSides getSide(Terminal terminal);
 
     Optional<Substation> getSubstation();
 
@@ -319,6 +326,14 @@ public interface ThreeWindingsTransformer extends Connectable<ThreeWindingsTrans
      */
     Leg getLeg3();
 
+    default Leg getLeg(ThreeSides side) {
+        return switch (side) {
+            case ONE -> getLeg1();
+            case TWO -> getLeg2();
+            case THREE -> getLeg3();
+        };
+    }
+
     /**
      * Return the legs of this transformer, in the natural order (leg1, leg2 and leg3)
      */
@@ -338,8 +353,59 @@ public interface ThreeWindingsTransformer extends Connectable<ThreeWindingsTrans
      */
     double getRatedU0();
 
+    /**
+     * Set the rated voltage at the fictitious bus.
+     */
+    default ThreeWindingsTransformer setRatedU0(double ratedU0) {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     default IdentifiableType getType() {
         return IdentifiableType.THREE_WINDINGS_TRANSFORMER;
     }
+
+    /**
+     * Only checks overloading for LimitType.Current and permanent limits
+     */
+    boolean isOverloaded();
+
+    /**
+     * Only checks overloading for LimitType.Current and permanent limits
+     */
+    boolean isOverloaded(double limitReductionValue);
+
+    int getOverloadDuration();
+
+    boolean checkPermanentLimit(ThreeSides side, double limitReductionValue, LimitType type);
+
+    boolean checkPermanentLimit(ThreeSides side, LimitType type);
+
+    boolean checkPermanentLimit1(double limitReductionValue, LimitType type);
+
+    boolean checkPermanentLimit1(LimitType type);
+
+    boolean checkPermanentLimit2(double limitReductionValue, LimitType type);
+
+    boolean checkPermanentLimit2(LimitType type);
+
+    boolean checkPermanentLimit3(double limitReductionValue, LimitType type);
+
+    boolean checkPermanentLimit3(LimitType type);
+
+    Overload checkTemporaryLimits(ThreeSides side, double limitReductionValue, LimitType type);
+
+    Overload checkTemporaryLimits(ThreeSides side, LimitType type);
+
+    Overload checkTemporaryLimits1(double limitReductionValue, LimitType type);
+
+    Overload checkTemporaryLimits1(LimitType type);
+
+    Overload checkTemporaryLimits2(double limitReductionValue, LimitType type);
+
+    Overload checkTemporaryLimits2(LimitType type);
+
+    Overload checkTemporaryLimits3(double limitReductionValue, LimitType type);
+
+    Overload checkTemporaryLimits3(LimitType type);
 }

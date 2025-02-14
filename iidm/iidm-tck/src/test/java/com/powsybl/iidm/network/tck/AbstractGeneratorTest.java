@@ -3,22 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.FictitiousSwitchFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public abstract class AbstractGeneratorTest {
 
@@ -28,13 +27,10 @@ public abstract class AbstractGeneratorTest {
 
     private static final String TO_REMOVE = "toRemove";
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     private Network network;
     private VoltageLevel voltageLevel;
 
-    @Before
+    @BeforeEach
     public void initNetwork() {
         network = FictitiousSwitchFactory.create();
         voltageLevel = network.getVoltageLevel("C");
@@ -74,121 +70,113 @@ public abstract class AbstractGeneratorTest {
         assertFalse(generator.isVoltageRegulatorOn());
         generator.setVoltageRegulatorOn(true);
         assertTrue(generator.isVoltageRegulatorOn());
+        assertFalse(generator.isCondenser());
 
         assertEquals(12, generator.getTerminal().getNodeBreakerView().getNode());
     }
 
     @Test
     public void undefinedVoltageRegulatorOn() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("Generator 'GEN': voltage regulator status is not set");
-        voltageLevel.newGenerator()
+        GeneratorAdder generatorAdder = voltageLevel.newGenerator()
                 .setId("GEN")
                 .setMaxP(Double.MAX_VALUE)
                 .setMinP(-Double.MAX_VALUE)
                 .setTargetP(30.0)
-                .setNode(1)
-                .add();
+                .setNode(1);
+        ValidationException e = assertThrows(ValidationException.class, generatorAdder::add);
+        assertEquals("Generator 'GEN': voltage regulator status is not set", e.getMessage());
     }
 
     @Test
     public void invalidMaxP() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("for maximum P");
-        createGenerator(INVALID, EnergySource.HYDRO, Double.NaN, 10.0, 20.0,
-                30.0, 40.0, false, 20.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, Double.NaN, 10.0, 20.0,
+                30.0, 40.0, false, 20.0));
+        assertTrue(e.getMessage().contains("for maximum P"));
     }
 
     @Test
     public void invalidMinP() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("for minimum P");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, Double.NaN, 20.0,
-                30.0, 40.0, false, 20.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, Double.NaN, 20.0,
+                30.0, 40.0, false, 20.0));
+        assertTrue(e.getMessage().contains("for minimum P"));
     }
 
     @Test
     public void invalidLimitsP() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("invalid active limits");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 21., 20.0,
-                30.0, 40.0, false, 20.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 21., 20.0,
+                30.0, 40.0, false, 20.0));
+        assertTrue(e.getMessage().contains("invalid active limits"));
     }
 
     /**
-     * This test goal is to check if targetP is allowed to be freely set outside of the bounds defined by minP and maxP.
+     * This test goal is to check if targetP is allowed to be freely set outside the bounds defined by minP and maxP.
      * <p>
-     * For a Battery it is expected that the current power is between this bounds but it is not mandatory for a Generator
+     * For a Battery it is expected that the current power is between these bounds, but it is not mandatory for a Generator</p>
      */
     @Test
     public void invalidPowerBounds() {
         // targetP < minP
         Generator invalidMinGenerator = createGenerator("invalid_min", EnergySource.HYDRO, 20.0, 10.0, 20.0,
                 0.0, 40.0, false, 20.0);
+        assertEquals(0.0, invalidMinGenerator.getTargetP(), 0.0);
         invalidMinGenerator.remove();
 
         // targetP > maxP
-        createGenerator("invalid_max", EnergySource.HYDRO, 20.0, 10.0, 20.0,
+        Generator invalidMaxGenerator = createGenerator("invalid_max", EnergySource.HYDRO, 20.0, 10.0, 20.0,
                 30.0, 40.0, false, 20.0);
+        assertEquals(30.0, invalidMaxGenerator.getTargetP(), 0.0);
 
     }
 
     @Test
     public void invalidRatedS() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("Invalid value of rated S");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 0.0,
-                15.0, 40.0, false, 20.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 0.0,
+                15.0, 40.0, false, 20.0));
+        assertTrue(e.getMessage().contains("Invalid value of rated S"));
     }
 
     @Test
     public void invalidRatedS2() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("Invalid value of rated S");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., -1.0,
-                15.0, 40.0, false, 20.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., -1.0,
+                15.0, 40.0, false, 20.0));
+        assertTrue(e.getMessage().contains("Invalid value of rated S"));
     }
 
     @Test
     public void invalidActiveP() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("for active power setpoint");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
-                Double.NaN, 10.0, false, 10.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
+                Double.NaN, 10.0, false, 10.0));
+        assertTrue(e.getMessage().contains("for active power setpoint"));
     }
 
     @Test
     public void invalidReactiveQ() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("for reactive power setpoint");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
-                30.0, Double.NaN, false, 10.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
+                30.0, Double.NaN, false, 10.0));
+        assertTrue(e.getMessage().contains("for reactive power setpoint"));
     }
 
     @Test
     public void invalidVoltageSetpoint() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("for voltage setpoint");
-        createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
-                30.0, 40.0, true, 0.0);
+        ValidationException e = assertThrows(ValidationException.class, () -> createGenerator(INVALID, EnergySource.HYDRO, 20.0, 11., 2.0,
+                30.0, 40.0, true, 0.0));
+        assertTrue(e.getMessage().contains("for voltage setpoint"));
     }
 
     @Test
     public void duplicateEquipment() {
         createGenerator("duplicate", EnergySource.HYDRO, 20.0, 11., 2.0,
                 15.0, 40.0, true, 2.0);
-        thrown.expect(PowsyblException.class);
-        thrown.expectMessage("contains an object 'GeneratorImpl' with the id 'duplicate'");
-        createGenerator("duplicate", EnergySource.HYDRO, 20.0, 11., 2.0,
-                15.0, 40.0, true, 2.0);
+        PowsyblException e = assertThrows(PowsyblException.class, () -> createGenerator("duplicate", EnergySource.HYDRO, 20.0, 11., 2.0,
+                15.0, 40.0, true, 2.0));
+        assertTrue(e.getMessage().contains("contains an object 'GeneratorImpl' with the id 'duplicate'"));
     }
 
     @Test
     public void duplicateId() {
-        thrown.expect(PowsyblException.class);
-        thrown.expectMessage("with the id 'A'");
-        createGenerator("A", EnergySource.HYDRO, 20.0, 11., 2.0,
-                30.0, 40.0, true, 2.0);
+        PowsyblException e = assertThrows(PowsyblException.class, () -> createGenerator("A", EnergySource.HYDRO, 20.0, 11., 2.0,
+                30.0, 40.0, true, 2.0));
+        assertTrue(e.getMessage().contains("with the id 'A'"));
     }
 
     @Test
@@ -204,6 +192,7 @@ public abstract class AbstractGeneratorTest {
                 .setTargetQ(20.0)
                 .setNode(1)
                 .setTargetV(31.0)
+                .setCondenser(true)
                 .add();
         Generator generator = network.getGenerator(GEN_ID);
         assertNotNull(generator);
@@ -216,6 +205,7 @@ public abstract class AbstractGeneratorTest {
         assertEquals(30.0, generator.getTargetP(), 0.0);
         assertEquals(20.0, generator.getTargetQ(), 0.0);
         assertEquals(31.0, generator.getTargetV(), 0.0);
+        assertTrue(generator.isCondenser());
     }
 
     @Test

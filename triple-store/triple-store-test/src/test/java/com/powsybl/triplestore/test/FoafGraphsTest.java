@@ -3,24 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.test;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.powsybl.triplestore.api.QueryCatalog;
 import com.powsybl.triplestore.api.TripleStoreFactory;
 import com.powsybl.triplestore.test.TripleStoreTester.Expected;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class FoafGraphsTest {
+class FoafGraphsTest {
 
-    @BeforeClass
-    public static void setUp() {
+    @BeforeAll
+    static void setUp() {
         queries = new QueryCatalog("foaf/foaf-graphs.sparql");
         String base = "foo:foaf";
         String[] inputs = {"foaf/abc-nicks.ttl", "foaf/abc-lastNames.ttl"};
@@ -36,13 +37,13 @@ public class FoafGraphsTest {
     }
 
     @Test
-    public void testLastNames() {
+    void testLastNames() {
         Expected expected = new Expected().expect("lastName", "Channing", "Liddell", "Marley");
         tester.testQuery(queries.get("lastNames"), expected);
     }
 
     @Test
-    public void testLastNamesGraph() {
+    void testLastNamesGraph() {
         Expected expected = new Expected()
                 .expect("lastName", "Channing", "Liddell", "Marley")
                 .expect("graphLastnames",
@@ -57,7 +58,7 @@ public class FoafGraphsTest {
     }
 
     @Test
-    public void testLastNameOnlyIfNick() {
+    void testLastNameOnlyIfNick() {
         Expected expected = new Expected()
                 .expect("lastName", "Channing", "Liddell", null)
                 .expect("graphLastnames",
@@ -72,7 +73,7 @@ public class FoafGraphsTest {
     }
 
     @Test
-    public void testLastNameOnlyIfNickFailsForImplBadNestedGraphs() {
+    void testLastNameOnlyIfNickFailsForImplBadNestedGraphs() {
         Expected expected = new Expected()
                 .expect("lastName", null, null, null)
                 .expect("graphLastnames", null, null, null)

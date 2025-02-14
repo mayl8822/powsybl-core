@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion;
 
@@ -18,8 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 
 public class RegulatingControlMappingForVscConverters {
@@ -83,7 +84,11 @@ public class RegulatingControlMappingForVscConverters {
         } else if (vscRegulation == VscRegulation.REACTIVE_POWER) {
             setRegulatingControlReactivePower(rc, vscConverter);
         } else {
-            context.ignored(rc.vscRegulation, "Unsupported regulation mode for vscConverter " + vscConverter.getId());
+            String what = rc.vscRegulation;
+            if (rc.vscRegulation == null) {
+                what = "EmptyVscRegulation";
+            }
+            context.ignored(what, "Unsupported regulation mode for vscConverter " + vscConverter.getId());
         }
     }
 

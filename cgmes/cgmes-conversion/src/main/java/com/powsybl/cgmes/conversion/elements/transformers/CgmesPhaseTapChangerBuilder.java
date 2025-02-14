@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.transformers;
@@ -17,8 +18,8 @@ import java.util.Comparator;
 import java.util.function.Supplier;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 
 public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder {
@@ -69,13 +70,13 @@ public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder 
         if (isLinear()) {
             addStepsLinear();
         } else if (isTabular()) {
-            PropertyBags table = context.phaseTapChangerTable(tableId);
-            if (table == null) {
+            PropertyBags tablePoints = context.phaseTapChangerTablePoints(tableId);
+            if (tablePoints.isEmpty()) {
                 addStepsLinear();
                 return;
             }
-            if (isTableValid(tableId, table)) {
-                addStepsFromTable(table);
+            if (isTableValid(tableId, tablePoints)) {
+                addStepsFromTable(tablePoints);
             } else {
                 addStepsLinear();
             }
@@ -144,8 +145,8 @@ public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder 
                     .setRatio(ratio)
                     .endStep();
         }
-        double xMin = p.asDouble(CgmesNames.X_STEP_MIN, p.asDouble(CgmesNames.X_MIN));
-        double xMax = p.asDouble(CgmesNames.X_STEP_MAX, p.asDouble(CgmesNames.X_MAX));
+        double xMin = getXMin();
+        double xMax = getXMax();
         if (Double.isNaN(xMin) || Double.isNaN(xMax) || xMin < 0 || xMax <= 0 || xMin > xMax) {
             return;
         }
@@ -183,7 +184,7 @@ public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder 
                 angle = (step - neutralStep) * stepPhaseShiftIncrement;
             } else {
                 double dy = (step - neutralStep) * (stepVoltageIncrement / 100.0);
-                angle = Math.toDegrees(2 * Math.asin(dy / 2));
+                angle = Math.toDegrees(2 * Math.atan(dy / 2));
             }
             tapChanger.beginStep()
                 .setRatio(1.0)
@@ -194,8 +195,8 @@ public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder 
     }
 
     private void stepXforLinearAndSymmetrical() {
-        double xMin = p.asDouble(CgmesNames.X_STEP_MIN, p.asDouble(CgmesNames.X_MIN));
-        double xMax = p.asDouble(CgmesNames.X_STEP_MAX, p.asDouble(CgmesNames.X_MAX));
+        double xMin = getXMin();
+        double xMax = getXMax();
         if (Double.isNaN(xMin) || Double.isNaN(xMax) || xMin < 0 || xMax <= 0 || xMin > xMax) {
             return;
         }
@@ -234,6 +235,24 @@ public class CgmesPhaseTapChangerBuilder extends AbstractCgmesTapChangerBuilder 
 
     private boolean isAsymmetrical() {
         return typeLowerCase != null && typeLowerCase.endsWith(CgmesNames.ASYMMETRICAL);
+    }
+
+    private double getXMin() {
+        // xMin has been deprecated in CGMES 3, and is optional
+        // Also, if the value read is inconsistent, x of the transformer must be used.
+        // Quoting the definition from CGMES 3:
+        // "PowerTransformerEnd.x shall be consistent with PhaseTapChangerLinear.xMin
+        // and PhaseTapChangerNonLinear.xMin.
+        // In case of inconsistency, PowerTransformerEnd.x shall be used."
+        double xMin = p.asDouble(CgmesNames.X_STEP_MIN, p.asDouble(CgmesNames.X_MIN, 0));
+        if (xMin <= 0) {
+            return xtx;
+        }
+        return xMin;
+    }
+
+    private double getXMax() {
+        return p.asDouble(CgmesNames.X_STEP_MAX, p.asDouble(CgmesNames.X_MAX));
     }
 
     private static String toClassTypeFromClassOrKind(String type) {

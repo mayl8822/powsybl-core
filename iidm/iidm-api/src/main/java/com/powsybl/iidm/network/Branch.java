@@ -3,11 +3,14 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Optional;
+
+import static com.powsybl.iidm.network.util.LoadingLimitsUtil.initializeFromLoadingLimits;
 
 /**
  * An equipment with two terminals.
@@ -94,38 +97,9 @@ import java.util.Collections;
  *         </tr>
  *     </tbody>
  * </table>
- *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public interface Branch<I extends Branch<I>> extends Connectable<I> {
-
-    enum Side {
-        ONE,
-        TWO
-    }
-
-    /**
-     * Represents a current overload on a {@link Branch}.
-     */
-    interface Overload {
-
-        /**
-         * The temporary limit under which the current is.
-         * In particular, it determines the duration during which
-         * the current current value may be sustained.
-         */
-        CurrentLimits.TemporaryLimit getTemporaryLimit();
-
-        /**
-         * The value of the current limit which has been overloaded, in Amperes.
-         */
-        double getPreviousLimit();
-
-        /**
-         * The name of the current limit which has been overloaded.
-         */
-        String getPreviousLimitName();
-    }
+public interface Branch<I extends Branch<I>> extends Identifiable<I> {
 
     /**
      * Get the first terminal.
@@ -137,90 +111,406 @@ public interface Branch<I extends Branch<I>> extends Connectable<I> {
      */
     Terminal getTerminal2();
 
-    Terminal getTerminal(Side side);
+    Terminal getTerminal(TwoSides side);
 
     Terminal getTerminal(String voltageLevelId);
 
-    Side getSide(Terminal terminal);
+    TwoSides getSide(Terminal terminal);
 
-    default Collection<OperationalLimits> getOperationalLimits1() {
-        return getCurrentLimits1() != null ? Collections.singletonList(getCurrentLimits1()) : Collections.emptyList();
+    /**
+     * Get the collection of the defined {@link OperationalLimitsGroup} on side 1.
+     * @return the {@link OperationalLimitsGroup} s on side 1.
+     */
+    Collection<OperationalLimitsGroup> getOperationalLimitsGroups1();
+
+    /**
+     * Get the {@link OperationalLimitsGroup} corresponding to an ID on side 1.
+     * @return the {@link OperationalLimitsGroup} of the given ID on side 1 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<String> getSelectedOperationalLimitsGroupId1();
+
+    /**
+     * Get the {@link OperationalLimitsGroup} corresponding to an ID on side 1.
+     * @return the {@link OperationalLimitsGroup} of the given ID on side 1 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<OperationalLimitsGroup> getOperationalLimitsGroup1(String id);
+
+    /**
+     * Get the selected {@link OperationalLimitsGroup} on side 1.
+     * @return the selected {@link OperationalLimitsGroup} on side 1 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<OperationalLimitsGroup> getSelectedOperationalLimitsGroup1();
+
+    /**
+     * <p>Create a new {@link OperationalLimitsGroup} on side 1 with the given ID.</p>
+     * <p>If a group of the given ID already exists, it is replaced silently.</p>
+     * @return the newly created group {@link OperationalLimitsGroup}.
+     */
+    OperationalLimitsGroup newOperationalLimitsGroup1(String id);
+
+    /**
+     * <p>Set the {@link OperationalLimitsGroup} corresponding to the given ID as as the selected one on side 1.</p>
+     * <p>Throw a {@link com.powsybl.commons.PowsyblException} if the ID doesn't correspond to any existing group.</p>
+     * <p>Throw an {@link NullPointerException} if the ID is <code>null</code>.
+     * To reset the selected group, use {@link #cancelSelectedOperationalLimitsGroup1}.</p>
+     * @param id an ID of {@link OperationalLimitsGroup}
+     */
+    void setSelectedOperationalLimitsGroup1(String id);
+
+    /**
+     * <p>Remove the {@link OperationalLimitsGroup} corresponding to the given ID on side 1.</p>
+     * <p>Throw an {@link NullPointerException} if the ID is <code>null</code>.
+     * @param id an ID of {@link OperationalLimitsGroup}
+     */
+    void removeOperationalLimitsGroup1(String id);
+
+    /**
+     * <p>Cancel the selected {@link OperationalLimitsGroup} on side 1.</p>
+     * <p>After calling this method, no {@link OperationalLimitsGroup} is selected on side 1.</p>
+     */
+    void cancelSelectedOperationalLimitsGroup1();
+
+    /**
+     * Get the {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, <code>null</code> otherwise.
+     */
+    default Optional<CurrentLimits> getCurrentLimits1() {
+        return getSelectedOperationalLimitsGroup1().flatMap(OperationalLimitsGroup::getCurrentLimits);
     }
 
-    CurrentLimits getCurrentLimits1();
-
-    default ActivePowerLimits getActivePowerLimits1() {
-        return null;
+    /**
+     * Get the {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, <code>null</code> otherwise.
+     */
+    default CurrentLimits getNullableCurrentLimits1() {
+        return getCurrentLimits1().orElse(null);
     }
 
-    default ApparentPowerLimits getApparentPowerLimits1() {
-        return null;
+    /**
+     * Get the {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, an empty {@link Optional} otherwise.
+     */
+    default Optional<ActivePowerLimits> getActivePowerLimits1() {
+        return getSelectedOperationalLimitsGroup1().flatMap(OperationalLimitsGroup::getActivePowerLimits);
     }
 
+    /**
+     * Get the {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, <code>null</code> otherwise.
+     */
+    default ActivePowerLimits getNullableActivePowerLimits1() {
+        return getActivePowerLimits1().orElse(null);
+    }
+
+    /**
+     * Get the {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, an empty {@link Optional} otherwise.
+     */
+    default Optional<ApparentPowerLimits> getApparentPowerLimits1() {
+        return getSelectedOperationalLimitsGroup1().flatMap(OperationalLimitsGroup::getApparentPowerLimits);
+    }
+
+    /**
+     * Get the {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 1.
+     * @return {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 1 if any, <code>null</code> otherwise.
+     */
+    default ApparentPowerLimits getNullableApparentPowerLimits1() {
+        return getApparentPowerLimits1().orElse(null);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link CurrentLimits} in the selected {@link OperationalLimitsGroup} on side 1.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link CurrentLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link CurrentLimits} in the selected {@link OperationalLimitsGroup} on side 1.
+     */
     CurrentLimitsAdder newCurrentLimits1();
 
+    /**
+     * <p>Create an adder to add a copy of the {@link CurrentLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 1. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link CurrentLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param currentLimits a set of existing current limits.
+     * @return an adder allowing to create a new {@link CurrentLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 1.
+     */
+    default CurrentLimitsAdder newCurrentLimits1(CurrentLimits currentLimits) {
+        CurrentLimitsAdder currentLimitsAdder = newCurrentLimits1();
+        return initializeFromLoadingLimits(currentLimitsAdder, currentLimits);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link ActivePowerLimits} in the selected {@link OperationalLimitsGroup} on side 1.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ActivePowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link ActivePowerLimits} in the selected {@link OperationalLimitsGroup} on side 1.
+     */
     ActivePowerLimitsAdder newActivePowerLimits1();
 
+    /**
+     * <p>Create an adder to add a copy of the {@link ActivePowerLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 1. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ActivePowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param activePowerLimits a set of existing active power limits.
+     * @return an adder allowing to create a new {@link ActivePowerLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 1.
+     */
+    default ActivePowerLimitsAdder newActivePowerLimits1(ActivePowerLimits activePowerLimits) {
+        ActivePowerLimitsAdder activePowerLimitsAdder = newActivePowerLimits1();
+        return initializeFromLoadingLimits(activePowerLimitsAdder, activePowerLimits);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link ApparentPowerLimits} in the selected {@link OperationalLimitsGroup} on side 1.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ApparentPowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link ApparentPowerLimits} in the selected {@link OperationalLimitsGroup} on side 1.
+     */
     ApparentPowerLimitsAdder newApparentPowerLimits1();
 
-    default Collection<OperationalLimits> getOperationalLimits2() {
-        return getCurrentLimits2() != null ? Collections.singletonList(getCurrentLimits2()) : Collections.emptyList();
+    /**
+     * <p>Create an adder to add a copy of the {@link ApparentPowerLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 1. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ApparentPowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param apparentPowerLimits a set of existing apparent power limits.
+     * @return an adder allowing to create a new {@link ApparentPowerLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 1.
+     */
+    default ApparentPowerLimitsAdder newApparentPowerLimits1(ApparentPowerLimits apparentPowerLimits) {
+        ApparentPowerLimitsAdder apparentPowerLimitsAdder = newApparentPowerLimits1();
+        return initializeFromLoadingLimits(apparentPowerLimitsAdder, apparentPowerLimits);
     }
 
-    CurrentLimits getCurrentLimits2();
+    /**
+     * Get the collection of the defined {@link OperationalLimitsGroup} on side 2.
+     * @return the {@link OperationalLimitsGroup} s on side 2.
+     */
+    Collection<OperationalLimitsGroup> getOperationalLimitsGroups2();
 
-    default ActivePowerLimits getActivePowerLimits2() {
-        return null;
+    /**
+     * Get the {@link OperationalLimitsGroup} corresponding to an ID on side 2.
+     * @return the {@link OperationalLimitsGroup} of the given ID on side 2 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<String> getSelectedOperationalLimitsGroupId2();
+
+    /**
+     * Get the {@link OperationalLimitsGroup} corresponding to an ID on side 2.
+     * @return the {@link OperationalLimitsGroup} of the given ID on side 2 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<OperationalLimitsGroup> getOperationalLimitsGroup2(String id);
+
+    /**
+     * Get the selected {@link OperationalLimitsGroup} on side 2.
+     * @return the selected {@link OperationalLimitsGroup} on side 2 if any, an empty {@link Optional} otherwise.
+     */
+    Optional<OperationalLimitsGroup> getSelectedOperationalLimitsGroup2();
+
+    /**
+     * <p>Create a new {@link OperationalLimitsGroup} on side 2 with the given ID.</p>
+     * <p>If a group of the given ID already exists, it is replaced silently.</p>
+     * @return the newly created group {@link OperationalLimitsGroup}.
+     */
+    OperationalLimitsGroup newOperationalLimitsGroup2(String id);
+
+    /**
+     * <p>Set the {@link OperationalLimitsGroup} corresponding to the given ID as as the selected one on side 2.</p>
+     * <p>Throw a {@link com.powsybl.commons.PowsyblException} if the ID doesn't correspond to any existing group.</p>
+     * <p>Throw an {@link NullPointerException} if the ID is <code>null</code>.
+     * To reset the selected group, use {@link #cancelSelectedOperationalLimitsGroup2}.</p>
+     * @param id an ID of {@link OperationalLimitsGroup}
+     */
+    void setSelectedOperationalLimitsGroup2(String id);
+
+    /**
+     * <p>Remove the {@link OperationalLimitsGroup} corresponding to the given ID on side 2.</p>
+     * <p>Throw an {@link NullPointerException} if the ID is <code>null</code>.
+     * @param id an ID of {@link OperationalLimitsGroup}
+     */
+    void removeOperationalLimitsGroup2(String id);
+
+    /**
+     * <p>Cancel the selected {@link OperationalLimitsGroup} on side 2.</p>
+     * <p>After calling this method, no {@link OperationalLimitsGroup} is selected on side 2.</p>
+     */
+    void cancelSelectedOperationalLimitsGroup2();
+
+    /**
+     * Get the {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, <code>null</code> otherwise.
+     */
+    default Optional<CurrentLimits> getCurrentLimits2() {
+        return getSelectedOperationalLimitsGroup2().flatMap(OperationalLimitsGroup::getCurrentLimits);
     }
 
-    default ApparentPowerLimits getApparentPowerLimits2() {
-        return null;
+    /**
+     * Get the {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link CurrentLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, <code>null</code> otherwise.
+     */
+    default CurrentLimits getNullableCurrentLimits2() {
+        return getCurrentLimits2().orElse(null);
     }
 
+    /**
+     * Get the {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, an empty {@link Optional} otherwise.
+     */
+    default Optional<ActivePowerLimits> getActivePowerLimits2() {
+        return getSelectedOperationalLimitsGroup2().flatMap(OperationalLimitsGroup::getActivePowerLimits);
+    }
+
+    /**
+     * Get the {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link ActivePowerLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, <code>null</code> otherwise.
+     */
+    default ActivePowerLimits getNullableActivePowerLimits2() {
+        return getActivePowerLimits2().orElse(null);
+    }
+
+    /**
+     * Get the {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, an empty {@link Optional} otherwise.
+     */
+    default Optional<ApparentPowerLimits> getApparentPowerLimits2() {
+        return getSelectedOperationalLimitsGroup2().flatMap(OperationalLimitsGroup::getApparentPowerLimits);
+    }
+
+    /**
+     * Get the {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 2.
+     * @return {@link ApparentPowerLimits} of the selected {@link OperationalLimitsGroup} on side 2 if any, <code>null</code> otherwise.
+     */
+    default ApparentPowerLimits getNullableApparentPowerLimits2() {
+        return getApparentPowerLimits2().orElse(null);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link CurrentLimits} in the selected {@link OperationalLimitsGroup} on side 2.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link CurrentLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link CurrentLimits} in the selected {@link OperationalLimitsGroup} on side 2.
+     */
     CurrentLimitsAdder newCurrentLimits2();
 
+    /**
+     * <p>Create an adder to add a copy of the {@link CurrentLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 2. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link CurrentLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param currentLimits a set of existing current limits.
+     * @return an adder allowing to create a new {@link CurrentLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 2.
+     */
+    default CurrentLimitsAdder newCurrentLimits2(CurrentLimits currentLimits) {
+        CurrentLimitsAdder currentLimitsAdder = newCurrentLimits2();
+        return initializeFromLoadingLimits(currentLimitsAdder, currentLimits);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link ActivePowerLimits} in the selected {@link OperationalLimitsGroup} on side 2.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ActivePowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link ActivePowerLimits} in the selected {@link OperationalLimitsGroup} on side 2.
+     */
     ActivePowerLimitsAdder newActivePowerLimits2();
 
+    /**
+     * <p>Create an adder to add a copy of the {@link ActivePowerLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 2. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ActivePowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param activePowerLimits a set of existing active power limits.
+     * @return an adder allowing to create a new {@link ActivePowerLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 2.
+     */
+    default ActivePowerLimitsAdder newActivePowerLimits2(ActivePowerLimits activePowerLimits) {
+        ActivePowerLimitsAdder activePowerLimitsAdder = newActivePowerLimits2();
+        return initializeFromLoadingLimits(activePowerLimitsAdder, activePowerLimits);
+    }
+
+    /**
+     * <p>Create an adder to add a new {@link ApparentPowerLimits} in the selected {@link OperationalLimitsGroup} on side 2.</p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ApparentPowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @return an adder allowing to create a new {@link ApparentPowerLimits} in the selected {@link OperationalLimitsGroup} on side 2.
+     */
     ApparentPowerLimitsAdder newApparentPowerLimits2();
 
-    default CurrentLimits getCurrentLimits(Branch.Side side) {
-        if (side == Branch.Side.ONE) {
-            return getCurrentLimits1();
-        } else if (side == Branch.Side.TWO) {
-            return getCurrentLimits2();
-        }
-        throw new AssertionError("Unexpected side: " + side);
+    /**
+     * <p>Create an adder to add a copy of the {@link ApparentPowerLimits} in parameters in the selected {@link OperationalLimitsGroup} on side 2. </p>
+     * <p>If there's no selected group, the adder will also create a new group with the default name and set it as selected.
+     * This operation is performed when the limits are created via {@link ApparentPowerLimitsAdder#add()}, only if the limits to add
+     * are valid.</p>
+     * @param apparentPowerLimits a set of existing apparent power limits.
+     * @return an adder allowing to create a new {@link ApparentPowerLimits} initialized from the limits in parameters in the selected {@link OperationalLimitsGroup} on side 2.
+     */
+    default ApparentPowerLimitsAdder newApparentPowerLimits2(ApparentPowerLimits apparentPowerLimits) {
+        ApparentPowerLimitsAdder apparentPowerLimitsAdder = newApparentPowerLimits2();
+        return initializeFromLoadingLimits(apparentPowerLimitsAdder, apparentPowerLimits);
     }
 
-    default ActivePowerLimits getActivePowerLimits(Branch.Side side) {
-        if (side == Branch.Side.ONE) {
-            return getActivePowerLimits1();
-        } else if (side == Branch.Side.TWO) {
-            return getActivePowerLimits2();
-        }
-        throw new AssertionError("Unexpected side: " + side);
+    default Optional<CurrentLimits> getCurrentLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getCurrentLimits1();
+            case TWO -> getCurrentLimits2();
+        };
     }
 
-    default ApparentPowerLimits getApparentPowerLimits(Branch.Side side) {
-        if (side == Branch.Side.ONE) {
-            return getApparentPowerLimits1();
-        } else if (side == Branch.Side.TWO) {
-            return getApparentPowerLimits2();
-        }
-        throw new AssertionError("Unexpected side: " + side);
+    default Optional<ActivePowerLimits> getActivePowerLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getActivePowerLimits1();
+            case TWO -> getActivePowerLimits2();
+        };
     }
 
-    default LoadingLimits getLimits(LimitType type, Branch.Side side) {
-        switch (type) {
-            case CURRENT:
-                return getCurrentLimits(side);
-            case ACTIVE_POWER:
-                return getActivePowerLimits(side);
-            case APPARENT_POWER:
-                return getApparentPowerLimits(side);
-            default:
+    default Optional<ApparentPowerLimits> getApparentPowerLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getApparentPowerLimits1();
+            case TWO -> getApparentPowerLimits2();
+        };
+    }
+
+    default Optional<? extends LoadingLimits> getLimits(LimitType type, TwoSides side) {
+        return switch (type) {
+            case CURRENT -> getCurrentLimits(side);
+            case ACTIVE_POWER -> getActivePowerLimits(side);
+            case APPARENT_POWER -> getApparentPowerLimits(side);
+            default ->
                 throw new UnsupportedOperationException(String.format("Getting %s limits is not supported.", type.name()));
-        }
+        };
+    }
+
+    default CurrentLimits getNullableCurrentLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getNullableCurrentLimits1();
+            case TWO -> getNullableCurrentLimits2();
+        };
+    }
+
+    default ActivePowerLimits getNullableActivePowerLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getNullableActivePowerLimits1();
+            case TWO -> getNullableActivePowerLimits2();
+        };
+    }
+
+    default ApparentPowerLimits getNullableApparentPowerLimits(TwoSides side) {
+        return switch (side) {
+            case ONE -> getNullableApparentPowerLimits1();
+            case TWO -> getNullableApparentPowerLimits2();
+        };
+    }
+
+    default LoadingLimits getNullableLimits(LimitType type, TwoSides side) {
+        return switch (type) {
+            case CURRENT -> getNullableCurrentLimits(side);
+            case ACTIVE_POWER -> getNullableActivePowerLimits(side);
+            case APPARENT_POWER -> getNullableApparentPowerLimits(side);
+            default ->
+                throw new UnsupportedOperationException(String.format("Getting %s limits is not supported.", type.name()));
+        };
     }
 
     /**
@@ -231,211 +521,31 @@ public interface Branch<I extends Branch<I>> extends Connectable<I> {
     /**
      * Only checks overloading for LimitType.Current and permanent limits
      */
-    boolean isOverloaded(float limitReduction);
+    boolean isOverloaded(double limitReductionValue);
 
     int getOverloadDuration();
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit(Side, float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit(Side side, float limitReduction) {
-        return checkPermanentLimit(side, limitReduction, LimitType.CURRENT);
-    }
+    boolean checkPermanentLimit(TwoSides side, double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit(Side side, float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit(side, limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    boolean checkPermanentLimit(TwoSides side, LimitType type);
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit(Side, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit(Side side) {
-        return checkPermanentLimit(side, LimitType.CURRENT);
-    }
+    boolean checkPermanentLimit1(double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit(Side side, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit(side);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    boolean checkPermanentLimit1(LimitType type);
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit1(float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit1(float limitReduction) {
-        return checkPermanentLimit1(limitReduction, LimitType.CURRENT);
-    }
+    boolean checkPermanentLimit2(double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit1(float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit1(limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    boolean checkPermanentLimit2(LimitType type);
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit1(LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit1() {
-        return checkPermanentLimit1(LimitType.CURRENT);
-    }
+    Overload checkTemporaryLimits(TwoSides side, double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit1(LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit1();
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    Overload checkTemporaryLimits(TwoSides side, LimitType type);
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit2(float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit2(float limitReduction) {
-        return checkPermanentLimit2(limitReduction, LimitType.CURRENT);
-    }
+    Overload checkTemporaryLimits1(double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit2(float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit2(limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    Overload checkTemporaryLimits1(LimitType type);
 
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkPermanentLimit2(LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default boolean checkPermanentLimit2() {
-        return checkPermanentLimit2(LimitType.CURRENT);
-    }
+    Overload checkTemporaryLimits2(double limitReductionValue, LimitType type);
 
-    default boolean checkPermanentLimit2(LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkPermanentLimit2();
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits(Side, float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits(Side side, float limitReduction) {
-        return checkTemporaryLimits(side, limitReduction, LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits(Side side, float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits(side, limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits(Side, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits(Side side) {
-        return checkTemporaryLimits(side, LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits(Side side, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits(side);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits1(float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits1(float limitReduction) {
-        return checkTemporaryLimits1(limitReduction, LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits1(float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits1(limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits1(LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits1() {
-        return checkTemporaryLimits1(LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits1(LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits1();
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits2(float, LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits2(float limitReduction) {
-        return checkTemporaryLimits2(limitReduction, LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits2(float limitReduction, LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits2(limitReduction);
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
-
-    /**
-     * @deprecated Since 4.3.0, use {@link #checkTemporaryLimits2(LimitType)} instead.
-     */
-    @Deprecated(since = "4.3.0")
-    default Overload checkTemporaryLimits2() {
-        return checkTemporaryLimits2(LimitType.CURRENT);
-    }
-
-    default Overload checkTemporaryLimits2(LimitType type) {
-        if (type == LimitType.CURRENT) {
-            return checkTemporaryLimits2();
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Limit type %s not supported in default implementation. Only %s is supported.", type.name(), LimitType.CURRENT));
-        }
-    }
+    Overload checkTemporaryLimits2(LimitType type);
 }

@@ -3,18 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.output.NullWriter;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.powsybl.iidm.network.Bus;
@@ -28,9 +29,9 @@ import com.powsybl.loadflow.validation.io.ValidationWriter;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public class StaticVarCompensatorsValidationTest extends AbstractValidationTest {
+class StaticVarCompensatorsValidationTest extends AbstractValidationTest {
 
     private double p = 0;
     private double q = 3.72344;
@@ -48,8 +49,8 @@ public class StaticVarCompensatorsValidationTest extends AbstractValidationTest 
     private Terminal svcTerminal;
     private StaticVarCompensator svc;
 
-    @Before
-    public void setUp() throws IOException {
+    @BeforeEach
+    void setUp() throws IOException {
         super.setUp();
 
         Bus svcBus = Mockito.mock(Bus.class);
@@ -69,7 +70,7 @@ public class StaticVarCompensatorsValidationTest extends AbstractValidationTest 
         Mockito.when(svcTerminal.getBusView()).thenReturn(svcBusView);
         Mockito.when(svcTerminal.getVoltageLevel()).thenReturn(voltageLevel);
 
-        svc =  Mockito.mock(StaticVarCompensator.class);
+        svc = Mockito.mock(StaticVarCompensator.class);
         Mockito.when(svc.getId()).thenReturn("svc");
         Mockito.when(svc.getTerminal()).thenReturn(svcTerminal);
         Mockito.when(svc.getReactivePowerSetpoint()).thenReturn(reactivePowerSetpoint);
@@ -80,7 +81,7 @@ public class StaticVarCompensatorsValidationTest extends AbstractValidationTest 
     }
 
     @Test
-    public void checkSvcsValues() {
+    void checkSvcsValues() {
         // active power should be equal to 0
         assertTrue(StaticVarCompensatorsValidation.INSTANCE.checkSVCs("test", p, q, v, v, nominalV, reactivePowerSetpoint, voltageSetpoint, regulationMode, bMin, bMax, connected, mainComponent, strictConfig, NullWriter.NULL_WRITER));
         p = -39.8;
@@ -160,7 +161,7 @@ public class StaticVarCompensatorsValidationTest extends AbstractValidationTest 
     }
 
     @Test
-    public void checkSvcs() {
+    void checkSvcs() {
         // active power should be equal to 0
         assertTrue(StaticVarCompensatorsValidation.INSTANCE.checkSVCs(svc, strictConfig, NullWriter.NULL_WRITER));
         Mockito.when(svcTerminal.getP()).thenReturn(-39.8);
@@ -172,7 +173,7 @@ public class StaticVarCompensatorsValidationTest extends AbstractValidationTest 
     }
 
     @Test
-    public void checkNetworkSvcs() throws IOException {
+    void checkNetworkSvcs() throws IOException {
         Network network = Mockito.mock(Network.class);
         Mockito.when(network.getId()).thenReturn("network");
         Mockito.when(network.getStaticVarCompensatorStream()).thenAnswer(dummy -> Stream.of(svc));

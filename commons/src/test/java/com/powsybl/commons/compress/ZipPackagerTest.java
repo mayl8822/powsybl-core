@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.compress;
 
@@ -11,9 +12,9 @@ import com.google.common.jimfs.Jimfs;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.io.IOUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -24,18 +25,18 @@ import java.util.HashMap;
 import java.util.Objects;
 import java.util.zip.GZIPOutputStream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Yichen TANG <yichen.tang at rte-france.com>
+ * @author Yichen TANG {@literal <yichen.tang at rte-france.com>}
  */
-public class ZipPackagerTest {
+class ZipPackagerTest {
 
     private FileSystem fileSystem;
     private Path workingDir;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         workingDir = fileSystem.getPath("/wd");
         Path f1 = workingDir.resolve("f1");
@@ -56,7 +57,7 @@ public class ZipPackagerTest {
     }
 
     @Test
-    public void test() throws IOException {
+    void test() throws IOException {
         ZipPackager emptyZipPackager = new ZipPackager();
         emptyZipPackager.addPath(null)
                 .addPath(workingDir.resolve("missing"));
@@ -127,8 +128,8 @@ public class ZipPackagerTest {
         return baos.toByteArray();
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         fileSystem.close();
     }
 }

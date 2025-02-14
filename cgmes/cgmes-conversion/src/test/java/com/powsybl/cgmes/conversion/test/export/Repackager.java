@@ -3,8 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion.test.export;
+
+import com.powsybl.cgmes.model.CgmesOnDataSource;
+import com.powsybl.commons.datasource.ReadOnlyDataSource;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,13 +21,10 @@ import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import com.powsybl.cgmes.model.CgmesOnDataSource;
-import com.powsybl.commons.datasource.ReadOnlyDataSource;
-
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class Repackager {
+class Repackager {
 
     Repackager(ReadOnlyDataSource dataSource) {
         this.dataSource = dataSource;
@@ -45,8 +46,10 @@ public class Repackager {
             for (Map.Entry<String, Predicate<String>> e : dataSourceInputs.entrySet()) {
                 String targetFilename = e.getKey();
                 Predicate<String> dataSourceFileSelector = e.getValue();
-                try (InputStream is = newInputStream(dataSource, dataSourceFileSelector)) {
-                    zipFile(targetFilename, is, zipOut);
+                if (fileExists(dataSource, dataSourceFileSelector)) {
+                    try (InputStream is = newInputStream(dataSource, dataSourceFileSelector)) {
+                        zipFile(targetFilename, is, zipOut);
+                    }
                 }
             }
             for (Map.Entry<String, Path> e : fileInputs.entrySet()) {
@@ -63,9 +66,12 @@ public class Repackager {
         return ds.newInputStream(getName(ds, file));
     }
 
-    static String getName(ReadOnlyDataSource ds, Predicate<String> file) {
-        CgmesOnDataSource ns = new CgmesOnDataSource(ds);
-        return ns.names().stream().filter(n -> file.test(n)).findFirst().get();
+    static String getName(ReadOnlyDataSource ds, Predicate<String> fileSelector) {
+        return new CgmesOnDataSource(ds).names().stream().filter(fileSelector).findFirst().orElseThrow();
+    }
+
+    static boolean fileExists(ReadOnlyDataSource ds, Predicate<String> fileSelector) {
+        return new CgmesOnDataSource(ds).names().stream().anyMatch(fileSelector);
     }
 
     static boolean eq(String name) {

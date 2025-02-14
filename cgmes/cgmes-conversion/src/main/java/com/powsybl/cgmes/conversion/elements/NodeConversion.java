@@ -3,25 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
 
-import java.util.Objects;
-import java.util.function.Supplier;
-
-import com.powsybl.iidm.network.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.conversion.CountryConversion;
 import com.powsybl.cgmes.model.CgmesNames;
+import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.util.Networks;
 import com.powsybl.triplestore.api.PropertyBag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
+import java.util.function.Supplier;
+
+import static com.powsybl.cgmes.conversion.CgmesReports.invalidAngleVoltageBusReport;
+import static com.powsybl.cgmes.conversion.CgmesReports.invalidAngleVoltageNodeReport;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class NodeConversion extends AbstractIdentifiedObjectConversion {
 
@@ -58,7 +61,9 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
 
     private VoltageLevel newBoundarySubstationVoltageLevel() {
         double nominalVoltage = context.cgmes().nominalVoltage(p.getId("BaseVoltage"));
-        LOG.warn("Boundary node will be converted {}, nominalVoltage {} from base voltage {}", id, nominalVoltage, p.getId("BaseVoltage"));
+        if (LOG.isWarnEnabled()) {
+            LOG.warn("Boundary node will be converted {}, nominalVoltage {} from base voltage {}", id, nominalVoltage, p.getId("BaseVoltage"));
+        }
         String substationId = Context.boundarySubstationId(this.id);
         String vlId = Context.boundaryVoltageLevelId(this.id);
         String substationName = "boundary";
@@ -72,15 +77,12 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
             adder.setGeographicalTags(boundaryCountryCode().toString());
         }
         Substation substation = adder.add();
-        context.namingStrategy().readIdMapping(substation, "Substation");
-        VoltageLevel vl = substation.newVoltageLevel()
+        return substation.newVoltageLevel()
             .setId(context.namingStrategy().getIidmId("VoltageLevel", vlId))
             .setName(vlName)
             .setNominalV(nominalVoltage)
             .setTopologyKind(context.nodeBreaker() ? TopologyKind.NODE_BREAKER : TopologyKind.BUS_BREAKER)
             .add();
-        context.namingStrategy().readIdMapping(vl, "VoltageLevel");
-        return vl;
     }
 
     private Country boundaryCountryCode() {
@@ -137,7 +139,7 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
             return;
         }
         // To obtain a bus for which we want to set voltage:
-        // If there no Terminal at this IIDM node,
+        // If there is no Terminal at this IIDM node,
         // then find from it the first connected node with a Terminal
         Terminal t = topo.getOptionalTerminal(iidmNode)
                 .orElseGet(() -> Networks.getEquivalentTerminal(vl, iidmNode));
@@ -163,11 +165,16 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
         if (insideBoundary() && context.config().convertBoundary()) {
             return context.network().getVoltageLevel(Context.boundaryVoltageLevelId(this.id));
         } else if (!insideBoundary()) {
-            String containerId = p.getId("ConnectivityNodeContainer");
+            String containerId = p.getId(CgmesNames.CONNECTIVITY_NODE_CONTAINER);
             String cgmesId = context.cgmes().container(containerId).voltageLevel();
-
+            if (cgmesId == null) {
+                // A CGMES Voltage Level can not be obtained from the connectivity node container
+                // The connectivity node container is a cim:Line, and
+                // the conversion has created a fictitious voltage level in IIDM
+                cgmesId = context.nodeContainerMapping().getFictitiousVoltageLevelForContainer(containerId, this.id);
+            }
             String iidm = context.namingStrategy().getIidmId(CgmesNames.VOLTAGE_LEVEL, cgmesId);
-            String iidmId = context.substationIdMapping().voltageLevelIidm(iidm);
+            String iidmId = context.nodeContainerMapping().voltageLevelIidm(iidm);
             return iidmId != null ? context.network().getVoltageLevel(iidmId) : null;
         }
         return null;
@@ -175,8 +182,8 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
 
     private void newNode(VoltageLevel vl) {
         VoltageLevel.NodeBreakerView nbv = vl.getNodeBreakerView();
-        String connectivityNode = id;
-        int iidmNode = context.nodeMapping().iidmNodeForConnectivityNode(connectivityNode, vl);
+        // id is the connectivityNode
+        int iidmNode = context.nodeMapping().iidmNodeForConnectivityNode(id, vl);
 
         // Busbar sections are created for every connectivity node to be
         // able to easily check the topology calculated by IIDM
@@ -184,7 +191,7 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
         if (context.config().createBusbarSectionForEveryConnectivityNode()) {
             BusbarSection bus = nbv.newBusbarSection()
                 .setId(context.namingStrategy().getIidmId("Bus", id))
-                .setName(context.namingStrategy().getName("Bus", name))
+                .setName(context.namingStrategy().getIidmName("Bus", name))
                 .setNode(iidmNode)
                 .add();
             LOG.debug("    BusbarSection added at node {} : {} {} : {}", iidmNode, id, name, bus);
@@ -194,34 +201,43 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
     private void newBus(VoltageLevel voltageLevel) {
         Bus bus = voltageLevel.getBusBreakerView().newBus()
             .setId(context.namingStrategy().getIidmId("Bus", id))
-            .setName(context.namingStrategy().getName("Bus", name))
+            .setName(context.namingStrategy().getIidmName("Bus", name))
             .add();
         if (checkValidVoltageAngle(bus)) {
             setVoltageAngle(bus);
         }
-        context.namingStrategy().readIdMapping(bus, "Bus");
     }
 
     private boolean checkValidVoltageAngle(Bus bus) {
         double v = p.asDouble(CgmesNames.VOLTAGE);
         double angle = p.asDouble(CgmesNames.ANGLE);
+        // If no values have been found we do not need to log or report
+        if (Double.isNaN(v) && Double.isNaN(angle)) {
+            return false;
+        }
         boolean valid = valid(v, angle);
         if (!valid) {
-            Supplier<String> reason = () -> String.format(
-                "v = %f, angle = %f. Node %s",
-                v,
-                angle,
-                id);
-            Supplier<String> location = () -> bus == null
-                ? "No bus"
-                : String.format("Bus %s, %sVoltage level %s",
-                    bus.getId(),
-                    bus.getVoltageLevel().getSubstation().map(s -> "Substation " + s.getNameOrId() + ", ").orElse(""),
-                    bus.getVoltageLevel().getNameOrId());
-            Supplier<String> message = () -> reason.get() + ". " + location.get();
+            Supplier<String> message = getStringSupplier(bus, v, angle);
             context.invalid("SvVoltage", message);
+
+            if (bus != null) {
+                invalidAngleVoltageBusReport(context.getReportNode(), bus, id, v, angle);
+            } else {
+                invalidAngleVoltageNodeReport(context.getReportNode(), id, v, angle);
+            }
         }
         return valid;
+    }
+
+    private Supplier<String> getStringSupplier(Bus bus, double v, double angle) {
+        Supplier<String> reason = () -> String.format("v = %f, angle = %f. Node %s", v, angle, id);
+        Supplier<String> location = () -> bus == null
+            ? "No bus"
+            : String.format("Bus %s, %sVoltage level %s",
+                bus.getId(),
+                bus.getVoltageLevel().getSubstation().map(s -> "Substation " + s.getNameOrId() + ", ").orElse(""),
+                bus.getVoltageLevel().getNameOrId());
+        return () -> reason.get() + ". " + location.get();
     }
 
     private void setVoltageAngle(Bus bus) {
@@ -246,7 +262,7 @@ public class NodeConversion extends AbstractIdentifiedObjectConversion {
         // and the right values returned.
         // Another option could be to keep storing SV values (v=0, angle=0),
         // but perform a when a switch is converted,
-        // and ensure its both ends have the same values (v,angle).
+        // and ensure that both ends have the same values (v,angle).
         // This is what HELM integration layer does when mapping from IIDM to HELM.
 
         boolean valid = v > 0;

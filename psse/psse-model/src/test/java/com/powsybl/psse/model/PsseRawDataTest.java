@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.psse.model;
 
@@ -13,9 +14,9 @@ import com.fasterxml.jackson.databind.ser.PropertyWriter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import com.google.common.io.ByteStreams;
-import com.powsybl.commons.AbstractConverterTest;
-import com.powsybl.commons.TestUtil;
-import com.powsybl.commons.datasource.FileDataSource;
+import com.powsybl.commons.test.AbstractSerDeTest;
+import com.powsybl.commons.test.TestUtil;
+import com.powsybl.commons.datasource.DirectoryDataSource;
 import com.powsybl.commons.datasource.ReadOnlyDataSource;
 import com.powsybl.commons.datasource.ResourceDataSource;
 import com.powsybl.commons.datasource.ResourceSet;
@@ -25,7 +26,7 @@ import com.powsybl.psse.model.pf.io.PowerFlowRawData32;
 import com.powsybl.psse.model.pf.io.PowerFlowRawData33;
 import com.powsybl.psse.model.pf.io.PowerFlowRawData35;
 import com.powsybl.psse.model.pf.io.PowerFlowRawxData35;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,22 +37,31 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import static com.powsybl.commons.test.ComparisonUtils.assertTxtEquals;
 import static com.powsybl.psse.model.PsseVersion.fromRevision;
 import static com.powsybl.psse.model.pf.io.PowerFlowRecordGroup.*;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class PsseRawDataTest extends AbstractConverterTest {
+class PsseRawDataTest extends AbstractSerDeTest {
 
     private ReadOnlyDataSource ieee14Raw() {
         return new ResourceDataSource("IEEE_14_bus", new ResourceSet("/", "IEEE_14_bus.raw"));
     }
 
+    private ReadOnlyDataSource ieee14nonInductionMachineDataRaw() {
+        return new ResourceDataSource("IEEE_14_bus_non_induction_machine_data", new ResourceSet("/", "IEEE_14_bus_non_induction_machine_data.raw"));
+    }
+
     private ReadOnlyDataSource ieee14Raw35() {
         return new ResourceDataSource("IEEE_14_bus_rev35", new ResourceSet("/", "IEEE_14_bus_rev35.raw"));
+    }
+
+    private ReadOnlyDataSource ieee14nonInductionMachineDataRaw35() {
+        return new ResourceDataSource("IEEE_14_bus_non_induction_machine_data_rev35", new ResourceSet("/", "IEEE_14_bus_non_induction_machine_data_rev35.raw"));
     }
 
     private ReadOnlyDataSource ieee14Rawx35() {
@@ -90,6 +100,18 @@ public class PsseRawDataTest extends AbstractConverterTest {
         return new ResourceDataSource("IEEE_14_bus_completed_rev35", new ResourceSet("/", "IEEE_14_bus_completed_rev35.rawx"));
     }
 
+    private ReadOnlyDataSource ieee14NodeBreakerRaw35() {
+        return new ResourceDataSource("IEEE_14_bus_nodeBreaker_rev35", new ResourceSet("/", "IEEE_14_bus_nodeBreaker_rev35.raw"));
+    }
+
+    private ReadOnlyDataSource ieee14NodeBreakerRawx35() {
+        return new ResourceDataSource("IEEE_14_bus_nodeBreaker_rev35", new ResourceSet("/", "IEEE_14_bus_nodeBreaker_rev35.rawx"));
+    }
+
+    private ReadOnlyDataSource fiveBusNodeBreakerRaw35() {
+        return new ResourceDataSource("five_bus_nodeBreaker_rev35", new ResourceSet("/", "five_bus_nodeBreaker_rev35.raw"));
+    }
+
     private ReadOnlyDataSource ieee14InvalidRaw() {
         return new ResourceDataSource("IEEE_14_bus_invalid", new ResourceSet("/", "IEEE_14_bus_invalid.raw"));
     }
@@ -100,6 +122,10 @@ public class PsseRawDataTest extends AbstractConverterTest {
 
     private ReadOnlyDataSource ieee14IsolatedBusesRaw() {
         return new ResourceDataSource("IEEE_14_isolated_buses", new ResourceSet("/", "IEEE_14_isolated_buses.raw"));
+    }
+
+    private ReadOnlyDataSource ieee14QrecordRev35Raw() {
+        return new ResourceDataSource("IEEE_14_bus_Q_record_rev35", new ResourceSet("/", "IEEE_14_bus_Q_record_rev35.raw"));
     }
 
     private static String toJson(PssePowerFlowModel rawData) throws JsonProcessingException {
@@ -126,7 +152,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusTest() throws IOException {
+    void ieee14BusTest() throws IOException {
         String expectedJson = loadReference("/IEEE_14_bus.json");
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14Raw(), "raw", new Context());
         assertNotNull(rawData);
@@ -134,7 +160,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testAccessToFieldNotPresentInVersion32() throws IOException {
+    void testAccessToFieldNotPresentInVersion32() throws IOException {
         PssePowerFlowModel raw32 = new PowerFlowRawData32().read(exampleVersion32(), "raw", new Context());
         assertNotNull(raw32);
 
@@ -155,7 +181,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testAccessToFieldNotPresentInVersion33() throws IOException {
+    void testAccessToFieldNotPresentInVersion33() throws IOException {
         PssePowerFlowModel raw33 = new PowerFlowRawData33().read(ieee14Raw(), "raw", new Context());
         assertNotNull(raw33);
 
@@ -196,7 +222,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testAccessToFieldNotPresentInVersionCompleted() throws IOException {
+    void testAccessToFieldNotPresentInVersionCompleted() throws IOException {
         PssePowerFlowModel raw33 = new PowerFlowRawData33().read(ieee14CompletedRaw(), "raw", new Context());
         assertNotNull(raw33);
 
@@ -215,7 +241,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusReadFieldsTest() throws IOException {
+    void ieee14BusReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14Raw(), "raw", context);
         assertNotNull(rawData);
@@ -276,7 +302,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusWhitespaceAsDelimiterTest() throws IOException {
+    void ieee14BusWhitespaceAsDelimiterTest() throws IOException {
         String expectedJson = loadReference("/IEEE_14_bus.json");
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14WhitespaceAsDelimiterRaw(), "raw", new Context());
         assertNotNull(rawData);
@@ -284,7 +310,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14IsolatedBusesTest() throws IOException {
+    void ieee14IsolatedBusesTest() throws IOException {
         String expectedJson = loadReference("/IEEE_14_isolated_buses.json");
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14IsolatedBusesRaw(), "raw", new Context());
         assertNotNull(rawData);
@@ -292,7 +318,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void minimalExampleRawxTest() throws IOException {
+    void minimalExampleRawxTest() throws IOException {
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(minimalRawx(), "rawx", new Context());
 
         double tol = 0.000001;
@@ -325,7 +351,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void minimalExampleRawxReadFieldsTest() throws IOException {
+    void minimalExampleRawxReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(minimalRawx(), "rawx", context);
         assertNotNull(rawData);
@@ -352,14 +378,14 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusRev35RawxTest() throws IOException {
+    void ieee14BusRev35RawxTest() throws IOException {
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(ieee14Rawx35(), "rawx", new Context());
         String jsonRef = loadReference("/IEEE_14_bus_rev35.json");
         assertEquals(jsonRef, toJson(rawData));
     }
 
     @Test
-    public void ieee14BusRev35RawxReadFieldsTest() throws IOException {
+    void ieee14BusRev35RawxReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(ieee14Rawx35(), "rawx", context);
         assertNotNull(rawData);
@@ -413,7 +439,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusRev35Test() throws IOException {
+    void ieee14BusRev35Test() throws IOException {
         PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14Raw35(), "raw", new Context());
         assertNotNull(rawData);
         String jsonRef = loadReference("/IEEE_14_bus_rev35.json");
@@ -421,7 +447,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusRev35ReadFieldsTest() throws IOException {
+    void ieee14BusRev35ReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14Raw35(), "raw", context);
         assertNotNull(rawData);
@@ -484,85 +510,85 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusWriteTest() throws IOException {
+    void ieee14BusWriteTest() throws IOException {
         Context context = new Context();
 
         PowerFlowRawData33 rawData33 = new PowerFlowRawData33();
         PssePowerFlowModel rawData = rawData33.read(ieee14Raw(), "raw", context);
         assertNotNull(rawData);
-        rawData33.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_exported"));
+        rawData33.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee14BusRev35WriteTest() throws IOException {
+    void ieee14BusRev35WriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData35 rawData35 = new PowerFlowRawData35();
         PssePowerFlowModel rawData = rawData35.read(ieee14Raw35(), "raw", context);
         assertNotNull(rawData);
 
-        rawData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_rev35_exported"));
+        rawData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_rev35_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_rev35_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_rev35_exported.raw"), is);
         }
     }
 
     @Test
-    public void minimalExampleRawxWriteTest() throws IOException {
+    void minimalExampleRawxWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawxData35 rawXData35 = new PowerFlowRawxData35();
         PssePowerFlowModel rawData = rawXData35.read(minimalRawx(), "rawx", context);
         assertNotNull(rawData);
 
-        rawXData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "MinimalExample_exported"));
+        rawXData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "MinimalExample_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "MinimalExample_exported.rawx"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "MinimalExample_exported.rawx"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "MinimalExample_exported.rawx"), is);
         }
     }
 
     @Test
-    public void ieee14BusRev35RawxWriteTest() throws IOException {
+    void ieee14BusRev35RawxWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawxData35 rawXData35 = new PowerFlowRawxData35();
         PssePowerFlowModel rawData = rawXData35.read(ieee14Rawx35(), "rawx", context);
         assertNotNull(rawData);
 
-        rawXData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_rev35_exported"));
+        rawXData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_rev35_exported.rawx"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_rev35_exported.rawx"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_rev35_exported.rawx"), is);
         }
     }
 
     @Test
-    public void ieee14WhitespaceAsDelimiterWriteTest() throws IOException {
+    void ieee14WhitespaceAsDelimiterWriteTest() throws IOException {
         Context context = new Context();
 
         PowerFlowRawData33 rawData33 = new PowerFlowRawData33();
         PssePowerFlowModel rawData = rawData33.read(ieee14WhitespaceAsDelimiterRaw(), "raw", context);
         assertNotNull(rawData);
-        rawData33.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_whitespaceAsDelimiter_exported"));
+        rawData33.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_whitespaceAsDelimiter_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_whitespaceAsDelimiter_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_whitespaceAsDelimiter_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_whitespaceAsDelimiter_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee14IsolatedBusesWriteTest() throws IOException {
+    void ieee14IsolatedBusesWriteTest() throws IOException {
         Context context = new Context();
 
         PowerFlowRawData33 rawData33 = new PowerFlowRawData33();
         PssePowerFlowModel rawData = rawData33.read(ieee14IsolatedBusesRaw(), "raw", context);
         assertNotNull(rawData);
-        rawData33.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_isolated_buses_exported"));
+        rawData33.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_isolated_buses_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_isolated_buses_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_isolated_buses_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_isolated_buses_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee24BusTest() throws IOException {
+    void ieee24BusTest() throws IOException {
         String expectedJson = loadReference("/IEEE_24_bus.json");
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee24Raw(), "raw", new Context());
         assertNotNull(rawData);
@@ -570,7 +596,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee24BusSwitchedShuntDataReadFieldsTest() throws IOException {
+    void ieee24BusSwitchedShuntDataReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee24Raw(), "raw", context);
         assertNotNull(rawData);
@@ -581,7 +607,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee24BusRev35Test() throws IOException {
+    void ieee24BusRev35Test() throws IOException {
         String expectedJson = loadReference("/IEEE_24_bus_rev35.json");
         PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee24Raw35(), "raw", new Context());
         assertNotNull(rawData);
@@ -589,7 +615,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee24BusRev35SwitchedShuntDataReadReadFieldsTest() throws IOException {
+    void ieee24BusRev35SwitchedShuntDataReadReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee24Raw35(), "raw", context);
         assertNotNull(rawData);
@@ -600,7 +626,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee24BusRev35RawxTest() throws IOException {
+    void ieee24BusRev35RawxTest() throws IOException {
         String expectedJson = loadReference("/IEEE_24_bus_rev35.json");
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(ieee24Rawx35(), "rawx", new Context());
         assertNotNull(rawData);
@@ -608,57 +634,57 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee24BusRev35RawxSwitchedShuntDataReadFieldsTest() throws IOException {
+    void ieee24BusRev35RawxSwitchedShuntDataReadFieldsTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawXData35 = new PowerFlowRawxData35().read(ieee24Rawx35(), "rawx", context);
         assertNotNull(rawXData35);
 
-        String[] expectedSwitchedShuntDataReadFields = new String[] {"i", "id", "modsw", "adjm", "stat", "vswhi", "vswlo", "swreg", "nreg", "rmpct", "rmidnt", "binit", "s1", "n1", "b1"};
+        String[] expectedSwitchedShuntDataReadFields = new String[] {"ibus", "shntid", "modsw", "adjm", "stat", "vswhi", "vswlo", "swreg", "nreg", "rmpct", "rmidnt", "binit", "s1", "n1", "b1"};
         String[] actualSwitchedShuntDataReadFields = context.getFieldNames(SWITCHED_SHUNT);
         assertArrayEquals(expectedSwitchedShuntDataReadFields, actualSwitchedShuntDataReadFields);
     }
 
     @Test
-    public void ieee24BusWriteTest() throws IOException {
+    void ieee24BusWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData33 rawData33 = new PowerFlowRawData33();
         PssePowerFlowModel rawData = rawData33.read(ieee24Raw(), "raw", context);
         assertNotNull(rawData);
 
-        rawData33.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_exported"));
+        rawData33.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_24_bus_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_24_bus_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_24_bus_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee24BusRev35WriteTest() throws IOException {
+    void ieee24BusRev35WriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData35 rawData35 = new PowerFlowRawData35();
         PssePowerFlowModel rawData = rawData35.read(ieee24Raw35(), "raw", context);
         assertNotNull(rawData);
 
-        rawData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_rev35_exported"));
+        rawData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_24_bus_rev35_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_24_bus_rev35_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_24_bus_rev35_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee24BusRev35RawxWriteTest() throws IOException {
+    void ieee24BusRev35RawxWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawxData35 rawxData35 = new PowerFlowRawxData35();
         PssePowerFlowModel rawData = rawxData35.read(ieee24Rawx35(), "rawx", context);
         assertNotNull(rawData);
 
-        rawxData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_rev35_exported"));
+        rawxData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_24_bus_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_24_bus_rev35_exported.rawx"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_24_bus_rev35_exported.rawx"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_24_bus_rev35_exported.rawx"), is);
         }
     }
 
     @Test
-    public void ieee14BusCompletedTest() throws IOException {
+    void ieee14BusCompletedTest() throws IOException {
         String expectedJson = loadReference("/IEEE_14_bus_completed.json");
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14CompletedRaw(), "raw", new Context());
         assertNotNull(rawData);
@@ -666,7 +692,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusCompletedRev35Test() throws IOException {
+    void ieee14BusCompletedRev35Test() throws IOException {
         String expectedJson = loadReference("/IEEE_14_bus_completed_rev35.json");
         PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14CompletedRaw35(), "raw", new Context());
         assertNotNull(rawData);
@@ -674,7 +700,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusCompletedRev35RawxTest() throws IOException {
+    void ieee14BusCompletedRev35RawxTest() throws IOException {
         String expectedJson = loadReference("/IEEE_14_bus_completed_rev35.json");
         PssePowerFlowModel rawData = new PowerFlowRawxData35().read(ieee14CompletedRawx35(), "rawx", new Context());
         assertNotNull(rawData);
@@ -682,46 +708,128 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void ieee14BusCompletedWriteTest() throws IOException {
+    void ieee14BusNodeBreakerRev35Test() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus_nodeBreaker_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14NodeBreakerRaw35(), "raw", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    @Test
+    void ieee14BusNodeBreakerRev35RawxTest() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus_nodeBreaker_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawxData35().read(ieee14NodeBreakerRawx35(), "rawx", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    void ieee14BusNodeBreakerRev35CopyTest() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus_nodeBreaker_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14NodeBreakerRaw35(), "raw", new Context());
+        assertNotNull(rawData);
+        PssePowerFlowModel copiedRawData = rawData.referenceAndCopyPssePowerFlowModel();
+        assertEquals(expectedJson, toJson(copiedRawData));
+    }
+
+    @Test
+    void fiveBusNodeBreakerRev35Test() throws IOException {
+        String expectedJson = loadReference("/five_bus_nodeBreaker_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData35().read(fiveBusNodeBreakerRaw35(), "raw", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    @Test
+    void ieee14BusNonInductionMachineDataTest() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14nonInductionMachineDataRaw(), "raw", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    @Test
+    void ieee14BusNonInductionMachineDataRev35Test() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14nonInductionMachineDataRaw35(), "raw", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    @Test
+    void ieee14BusQrecordRev35Test() throws IOException {
+        String expectedJson = loadReference("/IEEE_14_bus_Q_record_rev35.json");
+        PssePowerFlowModel rawData = new PowerFlowRawData35().read(ieee14QrecordRev35Raw(), "raw", new Context());
+        assertNotNull(rawData);
+        assertEquals(expectedJson, toJson(rawData));
+    }
+
+    @Test
+    void ieee14BusCompletedWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData33 rawData33 = new PowerFlowRawData33();
         PssePowerFlowModel rawData = rawData33.read(ieee14CompletedRaw(), "raw", context);
         assertNotNull(rawData);
 
-        rawData33.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_exported"));
+        rawData33.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_completed_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee14BusCompletedRev35WriteTest() throws IOException {
+    void ieee14BusCompletedRev35WriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData35 rawData35 = new PowerFlowRawData35();
         PssePowerFlowModel rawData = rawData35.read(ieee14CompletedRaw35(), "raw", context);
         assertNotNull(rawData);
 
-        rawData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_rev35_exported"));
+        rawData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_completed_rev35_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_rev35_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_rev35_exported.raw"), is);
         }
     }
 
     @Test
-    public void ieee14BusCompletedRev35RawxWriteTest() throws IOException {
+    void ieee14BusCompletedRev35RawxWriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawxData35 rawxData35 = new PowerFlowRawxData35();
         PssePowerFlowModel rawData = rawxData35.read(ieee14CompletedRawx35(), "rawx", context);
         assertNotNull(rawData);
 
-        rawxData35.write(rawData, context, new FileDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_rev35_exported"));
+        rawxData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_completed_rev35_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_completed_rev35_exported.rawx"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_rev35_exported.rawx"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_completed_rev35_exported.rawx"), is);
         }
     }
 
     @Test
-    public void invalidIeee14BusTest() throws IOException {
+    void ieee14BusNodeBreakerRev35WriteTest() throws IOException {
+        Context context = new Context();
+        PowerFlowRawData35 rawData35 = new PowerFlowRawData35();
+        PssePowerFlowModel rawData = rawData35.read(ieee14NodeBreakerRaw35(), "raw", context);
+        assertNotNull(rawData);
+
+        rawData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_nodeBreaker_rev35_exported"));
+        try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_nodeBreaker_rev35_exported.raw"))) {
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_nodeBreaker_rev35_exported.raw"), is);
+        }
+    }
+
+    @Test
+    void ieee14BusNodeBreakerRev35RawxWriteTest() throws IOException {
+        Context context = new Context();
+        PowerFlowRawxData35 rawxData35 = new PowerFlowRawxData35();
+        PssePowerFlowModel rawData = rawxData35.read(ieee14NodeBreakerRawx35(), "rawx", context);
+        assertNotNull(rawData);
+
+        rawxData35.write(rawData, context, new DirectoryDataSource(fileSystem.getPath("/work/"), "IEEE_14_bus_nodeBreaker_rev35_exported"));
+        try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "IEEE_14_bus_nodeBreaker_rev35_exported.rawx"))) {
+            assertTxtEquals(getClass().getResourceAsStream("/" + "IEEE_14_bus_nodeBreaker_rev35_exported.rawx"), is);
+        }
+    }
+
+    @Test
+    void invalidIeee14BusTest() throws IOException {
         Context context = new Context();
         PssePowerFlowModel rawData = new PowerFlowRawData33().read(ieee14InvalidRaw(), "raw", context);
         assertNotNull(rawData);
@@ -739,16 +847,16 @@ public class PsseRawDataTest extends AbstractConverterTest {
     }
 
     @Test
-    public void exampleVersion32WriteTest() throws IOException {
+    void exampleVersion32WriteTest() throws IOException {
         Context context = new Context();
         PowerFlowRawData32 rawData32 = new PowerFlowRawData32();
         PssePowerFlowModel rawData = rawData32.read(exampleVersion32(), "raw", context);
         assertNotNull(rawData);
 
         rawData32.write(rawData, context,
-            new FileDataSource(fileSystem.getPath("/work/"), "ExampleVersion32_exported"));
+            new DirectoryDataSource(fileSystem.getPath("/work/"), "ExampleVersion32_exported"));
         try (InputStream is = Files.newInputStream(fileSystem.getPath("/work/", "ExampleVersion32_exported.raw"))) {
-            compareTxt(getClass().getResourceAsStream("/" + "ExampleVersion32_exported.raw"), is);
+            assertTxtEquals(getClass().getResourceAsStream("/" + "ExampleVersion32_exported.raw"), is);
         }
     }
 
@@ -757,7 +865,7 @@ public class PsseRawDataTest extends AbstractConverterTest {
             String message = "Arrays are different:" + System.lineSeparator()
                 + "Expected: " + Arrays.toString(expected) + System.lineSeparator()
                 + "Actual  : " + Arrays.toString(actual);
-            throw new AssertionError(message);
+            throw new IllegalStateException(message);
         }
     }
 }

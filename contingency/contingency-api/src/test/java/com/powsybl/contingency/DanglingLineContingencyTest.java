@@ -3,25 +3,27 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.contingency;
 
 import com.google.common.testing.EqualsTester;
+import com.powsybl.contingency.contingency.list.ContingencyList;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.test.DanglingLineNetworkFactory;
 import com.powsybl.iidm.modification.tripping.DanglingLineTripping;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author Sebastien Murgey {@literal <sebastien.murgey at rte-france.com>}
  */
-public class DanglingLineContingencyTest {
+class DanglingLineContingencyTest {
     @Test
-    public void test() {
+    void test() {
         Contingency contingency = Contingency.danglingLine("id");
         assertEquals("id", contingency.getId());
         assertEquals(1, contingency.getElements().size());
@@ -31,7 +33,7 @@ public class DanglingLineContingencyTest {
         assertEquals(ContingencyElementType.DANGLING_LINE, dlContingency.getType());
 
         assertNotNull(dlContingency.toModification());
-        assertTrue(dlContingency.toModification() instanceof DanglingLineTripping);
+        assertInstanceOf(DanglingLineTripping.class, dlContingency.toModification());
 
         new EqualsTester()
                 .addEqualityGroup(new DanglingLineContingency("dl1"), new DanglingLineContingency("dl1"))
@@ -40,7 +42,7 @@ public class DanglingLineContingencyTest {
     }
 
     @Test
-    public void test2() {
+    void test2() {
         Network network = DanglingLineNetworkFactory.create();
         ContingencyList contingencyList = ContingencyList.of(Contingency.danglingLine("DL"), Contingency.danglingLine("unknown"));
         List<Contingency> contingencies = contingencyList.getContingencies(network);

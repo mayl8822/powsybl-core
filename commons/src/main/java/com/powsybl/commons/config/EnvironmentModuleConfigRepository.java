@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.config;
 
@@ -24,7 +25,7 @@ import java.util.function.UnaryOperator;
  * the expected environment variables name is MODULE_NAME__PROPERTY_NAME.
  * CamelCase names are also translated to underscore-separated names.
  *
- * @author Yichen TANG <yichen.tang at rte-france.com>
+ * @author Yichen TANG {@literal <yichen.tang at rte-france.com>}
  */
 public final class EnvironmentModuleConfigRepository implements ModuleConfigRepository {
 
@@ -65,6 +66,6 @@ public final class EnvironmentModuleConfigRepository implements ModuleConfigRepo
         Map<Object, Object> map = new HashMap<>();
         filteredEnvVarMap.keySet().stream().filter(k -> k.startsWith(UPPER_UNDERSCORE_FORMATTER.apply(name) + SEPARATOR))
                 .forEach(k -> map.put(k, filteredEnvVarMap.get(k)));
-        return map.isEmpty() ?  Optional.empty() : Optional.of(new EnvironmentMapModuleConfig(map, fs, name));
+        return map.isEmpty() ? Optional.empty() : Optional.of(new EnvironmentMapModuleConfig(map, fs, name));
     }
 }

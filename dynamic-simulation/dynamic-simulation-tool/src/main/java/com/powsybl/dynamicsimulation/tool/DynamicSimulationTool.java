@@ -3,39 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.dynamicsimulation.tool;
 
 import com.google.auto.service.AutoService;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.io.table.*;
-import com.powsybl.dynamicsimulation.CurvesSupplier;
-import com.powsybl.dynamicsimulation.EventModelsSupplier;
-import com.powsybl.dynamicsimulation.DynamicSimulation;
-import com.powsybl.dynamicsimulation.DynamicSimulationParameters;
-import com.powsybl.dynamicsimulation.DynamicSimulationResult;
-import com.powsybl.dynamicsimulation.DynamicModelsSupplier;
-import com.powsybl.dynamicsimulation.groovy.CurveGroovyExtension;
-import com.powsybl.dynamicsimulation.groovy.EventModelGroovyExtension;
-import com.powsybl.dynamicsimulation.groovy.DynamicModelGroovyExtension;
-import com.powsybl.dynamicsimulation.groovy.GroovyCurvesSupplier;
-import com.powsybl.dynamicsimulation.groovy.GroovyExtension;
-import com.powsybl.dynamicsimulation.groovy.GroovyEventModelsSupplier;
-import com.powsybl.dynamicsimulation.groovy.GroovyDynamicModelsSupplier;
+import com.powsybl.commons.report.ReportNode;
+import com.powsybl.dynamicsimulation.*;
+import com.powsybl.dynamicsimulation.groovy.DynamicSimulationSupplierFactory;
 import com.powsybl.dynamicsimulation.json.DynamicSimulationResultSerializer;
 import com.powsybl.dynamicsimulation.json.JsonDynamicSimulationParameters;
-import com.powsybl.iidm.import_.ImportConfig;
-import com.powsybl.iidm.import_.Importers;
+import com.powsybl.iidm.network.ImportConfig;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManagerConstants;
-import com.powsybl.iidm.tools.ConversionToolUtils;
+import com.powsybl.iidm.network.tools.ConversionToolUtils;
 import com.powsybl.tools.Command;
 import com.powsybl.tools.Tool;
 import com.powsybl.tools.ToolRunningContext;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.commons.io.FilenameUtils;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -45,7 +34,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
 @AutoService(Tool.class)
 public class DynamicSimulationTool implements Tool {
@@ -53,9 +42,10 @@ public class DynamicSimulationTool implements Tool {
     private static final String CASE_FILE = "case-file";
     private static final String DYNAMIC_MODELS_FILE = "dynamic-models-file";
     private static final String EVENT_MODELS_FILE = "event-models-file";
-    private static final String CURVES_FILE = "curves-file";
+    private static final String OUTPUT_VARIABLES_FILE = "output-variables-file";
     private static final String PARAMETERS_FILE = "parameters-file";
     private static final String OUTPUT_FILE = "output-file";
+    private static final String OUTPUT_LOG_FILE = "output-log-file";
 
     @Override
     public Command getCommand() {
@@ -96,8 +86,8 @@ public class DynamicSimulationTool implements Tool {
                     .hasArg()
                     .argName("FILE")
                     .build());
-                options.addOption(Option.builder().longOpt(CURVES_FILE)
-                    .desc("curves description as Groovy file")
+                options.addOption(Option.builder().longOpt(OUTPUT_VARIABLES_FILE)
+                    .desc("output variables description as Groovy file: defines a list of variables to plot or get the final value")
                     .hasArg()
                     .argName("FILE")
                     .build());
@@ -108,6 +98,11 @@ public class DynamicSimulationTool implements Tool {
                     .build());
                 options.addOption(Option.builder().longOpt(OUTPUT_FILE)
                     .desc("dynamic simulation results output path")
+                    .hasArg()
+                    .argName("FILE")
+                    .build());
+                options.addOption(Option.builder().longOpt(OUTPUT_LOG_FILE)
+                    .desc("dynamic simulation logs output path")
                     .hasArg()
                     .argName("FILE")
                     .build());
@@ -127,16 +122,11 @@ public class DynamicSimulationTool implements Tool {
     @Override
     public void run(CommandLine line, ToolRunningContext context) throws Exception {
         Path caseFile = context.getFileSystem().getPath(line.getOptionValue(CASE_FILE));
-        Path outputFile = null;
-
         // process a single network: output-file/output-format options available
-        if (line.hasOption(OUTPUT_FILE)) {
-            outputFile = context.getFileSystem().getPath(line.getOptionValue(OUTPUT_FILE));
-        }
 
         context.getOutputStream().println("Loading network '" + caseFile + "'");
         Properties inputParams = ConversionToolUtils.readProperties(line, ConversionToolUtils.OptionType.IMPORT, context);
-        Network network = Importers.loadNetwork(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
+        Network network = Network.read(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
         if (network == null) {
             throw new PowsyblException("Case '" + caseFile + "' not found");
         }
@@ -144,18 +134,18 @@ public class DynamicSimulationTool implements Tool {
         DynamicSimulation.Runner runner = DynamicSimulation.find();
 
         Path dydFile = context.getFileSystem().getPath(line.getOptionValue(DYNAMIC_MODELS_FILE));
-        DynamicModelsSupplier dynamicModelsSupplier = createDynamicModelsSupplier(dydFile, runner.getName());
+        DynamicModelsSupplier dynamicModelsSupplier = DynamicSimulationSupplierFactory.createDynamicModelsSupplier(dydFile, runner.getName());
 
         EventModelsSupplier eventSupplier = EventModelsSupplier.empty();
         if (line.hasOption(EVENT_MODELS_FILE)) {
             Path eventFile = context.getFileSystem().getPath(line.getOptionValue(EVENT_MODELS_FILE));
-            eventSupplier = createEventModelsSupplier(eventFile, runner.getName());
+            eventSupplier = DynamicSimulationSupplierFactory.createEventModelsSupplier(eventFile, runner.getName());
         }
 
-        CurvesSupplier curvesSupplier = CurvesSupplier.empty();
-        if (line.hasOption(CURVES_FILE)) {
-            Path curvesFile = context.getFileSystem().getPath(line.getOptionValue(CURVES_FILE));
-            curvesSupplier = createCurvesSupplier(curvesFile, runner.getName());
+        OutputVariablesSupplier outputVariablesSupplier = OutputVariablesSupplier.empty();
+        if (line.hasOption(OUTPUT_VARIABLES_FILE)) {
+            Path outputVariablesFile = context.getFileSystem().getPath(line.getOptionValue(OUTPUT_VARIABLES_FILE));
+            outputVariablesSupplier = DynamicSimulationSupplierFactory.createOutputVariablesSupplier(outputVariablesFile, runner.getName());
         }
 
         DynamicSimulationParameters params = DynamicSimulationParameters.load();
@@ -164,8 +154,17 @@ public class DynamicSimulationTool implements Tool {
             JsonDynamicSimulationParameters.update(params, parametersFile);
         }
 
-        DynamicSimulationResult result = runner.run(network, dynamicModelsSupplier, eventSupplier, curvesSupplier, VariantManagerConstants.INITIAL_VARIANT_ID, context.getShortTimeExecutionComputationManager(), params);
+        ReportNode reportNode = ReportNode.newRootReportNode().withMessageTemplate("dynamicSimulationTool", "Dynamic Simulation Tool").build();
+        DynamicSimulationResult result = runner.run(network, dynamicModelsSupplier, eventSupplier, outputVariablesSupplier, VariantManagerConstants.INITIAL_VARIANT_ID, context.getShortTimeExecutionComputationManager(), params, reportNode);
 
+        Path outputLogFile = line.hasOption(OUTPUT_LOG_FILE) ? context.getFileSystem().getPath(line.getOptionValue(OUTPUT_LOG_FILE)) : null;
+        if (outputLogFile != null) {
+            exportLog(reportNode, context, outputLogFile);
+        } else {
+            printLog(reportNode, context);
+        }
+
+        Path outputFile = line.hasOption(OUTPUT_FILE) ? context.getFileSystem().getPath(line.getOptionValue(OUTPUT_FILE)) : null;
         if (outputFile != null) {
             exportResult(result, context, outputFile);
         } else {
@@ -173,38 +172,16 @@ public class DynamicSimulationTool implements Tool {
         }
     }
 
-    private DynamicModelsSupplier createDynamicModelsSupplier(Path path, String providerName) {
-        String extension = FilenameUtils.getExtension(path.toString());
-        if (extension.equals("groovy")) {
-            return new GroovyDynamicModelsSupplier(path, GroovyExtension.find(DynamicModelGroovyExtension.class, providerName));
-        } else {
-            throw new PowsyblException("Unsupported dynamic model format: " + extension);
-        }
-    }
-
-    private EventModelsSupplier createEventModelsSupplier(Path path, String providerName) {
-        String extension = FilenameUtils.getExtension(path.toString());
-        if (extension.equals("groovy")) {
-            return new GroovyEventModelsSupplier(path, GroovyExtension.find(EventModelGroovyExtension.class, providerName));
-        } else {
-            throw new PowsyblException("Unsupported events format: " + extension);
-        }
-    }
-
-    private CurvesSupplier createCurvesSupplier(Path path, String providerName) {
-        String extension = FilenameUtils.getExtension(path.toString());
-        if (extension.equals("groovy")) {
-            return new GroovyCurvesSupplier(path, GroovyExtension.find(CurveGroovyExtension.class, providerName));
-        } else {
-            throw new PowsyblException("Unsupported curves format: " + extension);
-        }
-    }
-
     private void printResult(DynamicSimulationResult result, ToolRunningContext context) {
         Writer writer = new OutputStreamWriter(context.getOutputStream());
-
         AsciiTableFormatterFactory asciiTableFormatterFactory = new AsciiTableFormatterFactory();
         printDynamicSimulationResult(result, writer, asciiTableFormatterFactory, TableFormatterConfig.load());
+    }
+
+    private void printLog(ReportNode reportNode, ToolRunningContext context) throws IOException {
+        Writer writer = new OutputStreamWriter(context.getOutputStream());
+        reportNode.print(writer);
+        writer.flush();
     }
 
     private void printDynamicSimulationResult(DynamicSimulationResult result, Writer writer,
@@ -214,7 +191,7 @@ public class DynamicSimulationTool implements Tool {
             "dynamic simulation results",
             formatterConfig,
             new Column("Result"))) {
-            formatter.writeCell(result.isOk());
+            formatter.writeCell(result.getStatus().name());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -223,5 +200,10 @@ public class DynamicSimulationTool implements Tool {
     private void exportResult(DynamicSimulationResult result, ToolRunningContext context, Path outputFile) {
         context.getOutputStream().println("Writing results to '" + outputFile + "'");
         DynamicSimulationResultSerializer.write(result, outputFile);
+    }
+
+    private void exportLog(ReportNode reportNode, ToolRunningContext context, Path outputLogFile) throws IOException {
+        context.getOutputStream().println("Writing logs to '" + outputLogFile + "'");
+        reportNode.print(outputLogFile);
     }
 }

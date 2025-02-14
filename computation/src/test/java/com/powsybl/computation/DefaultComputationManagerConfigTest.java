@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
@@ -10,28 +11,39 @@ import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.powsybl.commons.config.InMemoryPlatformConfig;
 import com.powsybl.commons.config.MapModuleConfig;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import com.powsybl.commons.exceptions.UncheckedNoSuchMethodException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.nio.file.FileSystem;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class DefaultComputationManagerConfigTest {
+class DefaultComputationManagerConfigTest {
 
-    public static class FirstComputationManagerFactory implements ComputationManagerFactory {
+    static class FirstComputationManagerFactory implements ComputationManagerFactory {
         @Override
         public ComputationManager create() {
             return Mockito.mock(ComputationManager.class);
         }
     }
 
-    public static class SecondComputationManagerFactory implements ComputationManagerFactory {
+    static class SecondComputationManagerFactory implements ComputationManagerFactory {
+        @Override
+        public ComputationManager create() {
+            return Mockito.mock(ComputationManager.class);
+        }
+    }
+
+    static class ThirdComputationManagerFactory implements ComputationManagerFactory {
+        ThirdComputationManagerFactory(String a, String b) {
+        }
+
         @Override
         public ComputationManager create() {
             return Mockito.mock(ComputationManager.class);
@@ -40,18 +52,18 @@ public class DefaultComputationManagerConfigTest {
 
     private FileSystem fileSystem;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         fileSystem.close();
     }
 
     @Test
-    public void test() {
+    void test() {
         DefaultComputationManagerConfig config = new DefaultComputationManagerConfig(FirstComputationManagerFactory.class,
                                                                                      SecondComputationManagerFactory.class);
         assertEquals("DefaultComputationManagerConfig(shortTimeExecutionComputationManagerFactoryClass=com.powsybl.computation.DefaultComputationManagerConfigTest$FirstComputationManagerFactory, longTimeExecutionComputationManagerFactoryClass=com.powsybl.computation.DefaultComputationManagerConfigTest$SecondComputationManagerFactory)", config.toString());
@@ -71,5 +83,13 @@ public class DefaultComputationManagerConfigTest {
         assertEquals("DefaultComputationManagerConfig(shortTimeExecutionComputationManagerFactoryClass=" + FirstComputationManagerFactory.class.getName()
                         + ", longTimeExecutionComputationManagerFactoryClass=" + SecondComputationManagerFactory.class.getName() + ")",
                 config.toString());
+    }
+
+    @Test
+    void testExceptions() {
+        DefaultComputationManagerConfig config = new DefaultComputationManagerConfig(
+            FirstComputationManagerFactory.class,
+            ThirdComputationManagerFactory.class);
+        assertThrows(UncheckedNoSuchMethodException.class, config::createLongTimeExecutionComputationManager);
     }
 }

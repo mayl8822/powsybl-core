@@ -3,33 +3,34 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
 import com.google.common.collect.ImmutableMap;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class CommandExecutionTest {
+class CommandExecutionTest {
 
     private Command command;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         command = Mockito.mock(Command.class);
     }
 
     @Test
-    public void getExecutionVariablesTest1() {
+    void getExecutionVariablesTest1() {
         // variables cannot be null
         try {
             CommandExecution.getExecutionVariables(null, new CommandExecution(command, 1, 0, null, null));
@@ -39,7 +40,7 @@ public class CommandExecutionTest {
     }
 
     @Test
-    public void getExecutionVariablesTest2() {
+    void getExecutionVariablesTest2() {
         // overloaded variables can be null
         Map<String, String> executionVariables = CommandExecution.getExecutionVariables(ImmutableMap.of("a", "1", "b", "2"),
                                                                                         new CommandExecution(command, 1, 0, null, null));
@@ -47,11 +48,11 @@ public class CommandExecutionTest {
     }
 
     @Test
-    public void getExecutionVariablesTest3() {
+    void getExecutionVariablesTest3() {
         // variables and overloadedVariables merge
         Map<String, String> executionVariables = CommandExecution.getExecutionVariables(ImmutableMap.of("a", "1", "b", "2"),
                                                                                         new CommandExecution(command, 1, 0, null, ImmutableMap.of("c", "3")));
-        assertEquals(ImmutableMap.of("a", "1", "b", "2",  "c", "3"), executionVariables);
+        assertEquals(ImmutableMap.of("a", "1", "b", "2", "c", "3"), executionVariables);
     }
 
 }

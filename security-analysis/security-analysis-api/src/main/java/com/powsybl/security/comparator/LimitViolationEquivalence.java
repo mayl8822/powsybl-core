@@ -3,18 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.comparator;
-
-import java.util.Objects;
 
 import com.google.common.base.Equivalence;
 import com.powsybl.security.LimitViolation;
 import com.powsybl.security.LimitViolationType;
 
+import java.util.Objects;
+
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
 public class LimitViolationEquivalence extends Equivalence<LimitViolation> {
 
@@ -33,7 +34,7 @@ public class LimitViolationEquivalence extends Equivalence<LimitViolation> {
                && Math.abs(violation1.getAcceptableDuration() - violation2.getAcceptableDuration()) <= threshold
                && Math.abs(violation1.getLimitReduction() - violation2.getLimitReduction()) <= threshold
                && Math.abs(violation1.getValue() - violation2.getValue()) <= threshold
-               && (violation1.getLimitType() == LimitViolationType.CURRENT ? violation1.getSide() == violation2.getSide() : true);
+               && (violation1.getLimitType() != LimitViolationType.CURRENT || violation1.getSide() == violation2.getSide());
     }
 
     @Override

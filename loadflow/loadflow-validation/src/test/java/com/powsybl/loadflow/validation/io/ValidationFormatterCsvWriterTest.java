@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation.io;
 
@@ -11,14 +12,14 @@ import java.util.Locale;
 
 import com.powsybl.commons.io.table.CsvTableFormatterFactory;
 import com.powsybl.commons.io.table.TableFormatterConfig;
-import com.powsybl.iidm.network.util.TwtTestData;
+import com.powsybl.loadflow.validation.util.TwtTestData;
 import com.powsybl.loadflow.validation.ValidationType;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.it>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.it>}
  */
-public class ValidationFormatterCsvWriterTest extends AbstractValidationFormatterWriterTest {
+class ValidationFormatterCsvWriterTest extends AbstractValidationFormatterWriterTest {
 
     @Override
     protected String getFlowsContent() {
@@ -387,7 +388,7 @@ public class ValidationFormatterCsvWriterTest extends AbstractValidationFormatte
                                        "maxP" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "minQ" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "maxQ" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
-                                       AbstractValidationFormatterWriter.MAIN_COMPONENT +  AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
+                                       AbstractValidationFormatterWriter.MAIN_COMPONENT + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        AbstractValidationFormatterWriter.VALIDATION + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX),
                            String.join(";", generatorId,
                                        String.format(Locale.getDefault(), "%g", -p), String.format(Locale.getDefault(), "%g", -q),
@@ -426,7 +427,7 @@ public class ValidationFormatterCsvWriterTest extends AbstractValidationFormatte
                                        "maxP" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "minQ" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "maxQ" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
-                                       AbstractValidationFormatterWriter.MAIN_COMPONENT +  AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
+                                       AbstractValidationFormatterWriter.MAIN_COMPONENT + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        AbstractValidationFormatterWriter.VALIDATION + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX),
                            String.join(";", otherGeneratorId,
                                        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -717,7 +718,7 @@ public class ValidationFormatterCsvWriterTest extends AbstractValidationFormatte
                                        "regulationMode" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "bMin" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "bMax" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
-                                       AbstractValidationFormatterWriter.MAIN_COMPONENT +  AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
+                                       AbstractValidationFormatterWriter.MAIN_COMPONENT + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        AbstractValidationFormatterWriter.VALIDATION + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX),
                            String.join(";", svcId,
                                        String.format(Locale.getDefault(), "%g", -p), String.format(Locale.getDefault(), "%g", -q),
@@ -756,7 +757,7 @@ public class ValidationFormatterCsvWriterTest extends AbstractValidationFormatte
                                        "regulationMode" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "bMin" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        "bMax" + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
-                                       AbstractValidationFormatterWriter.MAIN_COMPONENT +  AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
+                                       AbstractValidationFormatterWriter.MAIN_COMPONENT + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX,
                                        AbstractValidationFormatterWriter.VALIDATION + AbstractValidationFormatterWriter.POST_COMPUTATION_SUFFIX),
                            String.join(";", otherSvcId,
                                        "", "", "", "", "", "", "", "", "", "", "", "", "",

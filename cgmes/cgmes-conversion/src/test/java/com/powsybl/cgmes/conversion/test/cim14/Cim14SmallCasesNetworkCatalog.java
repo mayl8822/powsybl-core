@@ -3,27 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.test.cim14;
 
-import com.powsybl.cgmes.model.test.TestGridModel;
-import com.powsybl.cgmes.model.test.cim14.Cim14SmallCasesCatalog;
+import com.powsybl.cgmes.model.GridModelReference;
+import com.powsybl.cgmes.model.test.Cim14SmallCasesCatalog;
 import com.powsybl.commons.datasource.ReadOnlyDataSource;
 import com.powsybl.commons.datasource.ResourceDataSource;
 import com.powsybl.commons.datasource.ResourceSet;
 import com.powsybl.iidm.network.*;
-import com.powsybl.iidm.xml.XMLImporter;
+import com.powsybl.iidm.serde.XMLImporter;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public final class Cim14SmallCasesNetworkCatalog {
+final class Cim14SmallCasesNetworkCatalog {
 
     private Cim14SmallCasesNetworkCatalog() {
     }
 
-    public static Network smallcase1() {
+    static Network smallcase1() {
         String sGenGeoTag = "1 ";
         String sInfGeoTag = "1 ";
         String genName = "GEN     ";
@@ -172,23 +173,23 @@ public final class Cim14SmallCasesNetworkCatalog {
         return network;
     }
 
-    public static Network ieee14() {
+    static Network ieee14() {
         return loadNetwork(Cim14SmallCasesCatalog.ieee14());
     }
 
-    public static Network nordic32() {
+    static Network nordic32() {
         return loadNetwork(Cim14SmallCasesCatalog.nordic32());
     }
 
-    public static Network m7buses() {
+    static Network m7buses() {
         return loadNetwork(Cim14SmallCasesCatalog.m7buses());
     }
 
-    public static Network txMicroBEAdapted() {
+    static Network txMicroBEAdapted() {
         return loadNetwork(Cim14SmallCasesCatalog.txMicroBEAdapted());
     }
 
-    private static Network loadNetwork(TestGridModel gm) {
+    private static Network loadNetwork(GridModelReference gm) {
         XMLImporter xmli = new XMLImporter();
         ReadOnlyDataSource ds = new ResourceDataSource(gm.name(), new ResourceSet("/cim14", gm.name() + ".xiidm"));
         return xmli.importData(ds, NetworkFactory.findDefault(), null);

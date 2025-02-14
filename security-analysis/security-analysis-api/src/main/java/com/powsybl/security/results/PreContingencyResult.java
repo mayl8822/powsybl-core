@@ -3,76 +3,38 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.results;
 
+import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.security.LimitViolationsResult;
 
 import java.util.*;
 
 /**
- * @author Etienne Lesot <etienne.lesot at rte-france.com>
+ * @author Etienne Lesot {@literal <etienne.lesot at rte-france.com>}
  */
-public class PreContingencyResult {
-    private LimitViolationsResult limitViolationsResult;
-    private final Map<String, BranchResult> preContingencyBranchResults = new HashMap<>();
-    private final Map<String, BusResult> preContingencyBusResults = new HashMap<>();
-    private final Map<String, ThreeWindingsTransformerResult> preContingencyThreeWindingsTransformerResults = new HashMap<>();
+public class PreContingencyResult extends AbstractContingencyResult {
+
+    private final LoadFlowResult.ComponentResult.Status status;
 
     public PreContingencyResult() {
-        this(null, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        this(LoadFlowResult.ComponentResult.Status.CONVERGED, null, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
     }
 
-    public PreContingencyResult(LimitViolationsResult preContingencyResult, Collection<BranchResult> preContingencyBranchResults,
-                                Collection<BusResult> preContingencyBusResults,
-                                Collection<ThreeWindingsTransformerResult> preContingencyThreeWindingsTransformerResults) {
-        this.limitViolationsResult = preContingencyResult;
-        Objects.requireNonNull(preContingencyBranchResults).forEach(r -> this.preContingencyBranchResults.put(r.getBranchId(), r));
-        Objects.requireNonNull(preContingencyBusResults).forEach(r -> this.preContingencyBusResults.put(r.getBusId(), r));
-        Objects.requireNonNull(preContingencyThreeWindingsTransformerResults).forEach(r -> this.preContingencyThreeWindingsTransformerResults.put(r.getThreeWindingsTransformerId(), r));
+    public PreContingencyResult(LoadFlowResult.ComponentResult.Status status, LimitViolationsResult limitViolationsResult, Collection<BranchResult> branchResults,
+                                Collection<BusResult> busResults,
+                                Collection<ThreeWindingsTransformerResult> threeWindingsTransformerResults) {
+        this(status, limitViolationsResult, new NetworkResult(branchResults, busResults, threeWindingsTransformerResults));
     }
 
-    public void setLimitViolationsResult(LimitViolationsResult limitViolationsResult) {
-        this.limitViolationsResult = limitViolationsResult;
+    public PreContingencyResult(LoadFlowResult.ComponentResult.Status status, LimitViolationsResult limitViolationsResult, NetworkResult networkResult) {
+        super(limitViolationsResult, networkResult);
+        this.status = Objects.requireNonNull(status);
     }
 
-    public void addPreContingencyBranchResults(Collection<BranchResult> branchResults) {
-        Objects.requireNonNull(branchResults).forEach(r -> this.preContingencyBranchResults.put(r.getBranchId(), r));
-    }
-
-    public void addPreContingencyBusResults(Collection<BusResult> busResults) {
-        Objects.requireNonNull(busResults).forEach(r -> this.preContingencyBusResults.put(r.getBusId(), r));
-    }
-
-    public void addPreContingencyThreeWindingsTransformerResults(Collection<ThreeWindingsTransformerResult> threeWindingsTransformerResults) {
-        Objects.requireNonNull(threeWindingsTransformerResults).forEach(r -> this.preContingencyThreeWindingsTransformerResults.put(r.getThreeWindingsTransformerId(), r));
-    }
-
-    public LimitViolationsResult getLimitViolationsResult() {
-        return limitViolationsResult;
-    }
-
-    public List<BusResult> getPreContingencyBusResults() {
-        return List.copyOf(preContingencyBusResults.values());
-    }
-
-    public BusResult getPreContingencyBusResult(String id) {
-        return preContingencyBusResults.get(Objects.requireNonNull(id));
-    }
-
-    public List<BranchResult> getPreContingencyBranchResults() {
-        return List.copyOf(preContingencyBranchResults.values());
-    }
-
-    public BranchResult getPreContingencyBranchResult(String id) {
-        return preContingencyBranchResults.get(Objects.requireNonNull(id));
-    }
-
-    public List<ThreeWindingsTransformerResult> getPreContingencyThreeWindingsTransformerResults() {
-        return List.copyOf(preContingencyThreeWindingsTransformerResults.values());
-    }
-
-    public ThreeWindingsTransformerResult getPreContingencyThreeWindingsTransformerResult(String id) {
-        return preContingencyThreeWindingsTransformerResults.get(Objects.requireNonNull(id));
+    public LoadFlowResult.ComponentResult.Status getStatus() {
+        return status;
     }
 }

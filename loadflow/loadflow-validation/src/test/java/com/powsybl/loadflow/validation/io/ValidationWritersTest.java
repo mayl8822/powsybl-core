@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation.io;
 
@@ -13,9 +14,9 @@ import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.validation.ValidationConfig;
 import com.powsybl.loadflow.validation.ValidationOutputWriter;
 import com.powsybl.loadflow.validation.ValidationType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.FileSystem;
@@ -23,14 +24,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public class ValidationWritersTest {
+class ValidationWritersTest {
 
     private final ValidationConfig config = new ValidationConfig(ValidationConfig.THRESHOLD_DEFAULT, ValidationConfig.VERBOSE_DEFAULT, "LoadFlowMock",
                                                                  ValidationConfig.TABLE_FORMATTER_FACTORY_DEFAULT, ValidationConfig.EPSILON_X_DEFAULT,
@@ -44,15 +45,15 @@ public class ValidationWritersTest {
     private FileSystem fileSystem;
     private ValidationWriters validationWriters;
 
-    @Before
-    public void setUp() throws IOException {
+    @BeforeEach
+    void setUp() throws IOException {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         Path folder = Files.createDirectory(fileSystem.getPath("/folder"));
         validationWriters = new ValidationWriters("network", usedValidationTypes, folder, config);
     }
 
     @Test
-    public void getWriter() {
+    void getWriter() {
         usedValidationTypes.forEach(type -> {
             assertNotNull(validationWriters.getWriter(type));
         });
@@ -61,8 +62,8 @@ public class ValidationWritersTest {
         });
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         validationWriters.close();
         fileSystem.close();
     }

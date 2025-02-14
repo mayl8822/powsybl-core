@@ -3,23 +3,24 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conformity;
 
-import com.powsybl.cgmes.model.test.TestGridModelResources;
+import com.powsybl.cgmes.model.GridModelReferenceResources;
 import com.powsybl.commons.datasource.ResourceSet;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public final class CgmesConformity2Catalog {
 
     private CgmesConformity2Catalog() {
     }
 
-    public static TestGridModelResources microGridType2Assembled() {
+    public static GridModelReferenceResources microGridType2Assembled() {
         String base = ENTSOE_CONFORMITY_2 + "/MicroGrid/Type2_T2/CGMES_v2.4.15_MicroGridTestConfiguration_T2_Assembled_Complete_v2/";
-        return new TestGridModelResources(
+        return new GridModelReferenceResources(
                 "MicroGrid-Type2-Assembled",
                 null,
                 new ResourceSet(base, "20171002T0930Z_1D_BE_SSH_4.xml",

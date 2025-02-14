@@ -3,12 +3,33 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.impl.rdf4j.test;
 
-import static org.junit.Assert.assertFalse;
+import com.powsybl.commons.datasource.DataSource;
+import com.powsybl.commons.datasource.MemDataSource;
+import com.powsybl.triplestore.api.PropertyBag;
+import com.powsybl.triplestore.api.PropertyBags;
+import com.powsybl.triplestore.impl.rdf4j.TripleStoreRDF4J;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.rio.RDFHandlerException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xmlunit.builder.DiffBuilder;
+import org.xmlunit.builder.Input;
+import org.xmlunit.diff.Diff;
 
+import javax.xml.transform.Source;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -17,34 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import javax.xml.transform.Source;
-
-import org.eclipse.rdf4j.IsolationLevels;
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.junit.Before;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.xmlunit.builder.DiffBuilder;
-import org.xmlunit.builder.Input;
-import org.xmlunit.diff.Diff;
-
-import com.powsybl.commons.datasource.DataSource;
-import com.powsybl.commons.datasource.MemDataSource;
-import com.powsybl.triplestore.api.PropertyBag;
-import com.powsybl.triplestore.api.PropertyBags;
-import com.powsybl.triplestore.impl.rdf4j.TripleStoreRDF4J;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class PowsyblWriterSequenceFixTest {
+class PowsyblWriterSequenceFixTest {
 
     private final PropertyBags objects = new PropertyBags();
     private final List<String> objectProperties = Arrays.asList("id", "property1", "property2");
@@ -54,15 +54,15 @@ public class PowsyblWriterSequenceFixTest {
     private final String objectType = "http://test/type1";
     private final String expected = "/fix-powsybl-writer-objects.xml";
 
-    @Before
-    public void setUp() {
-        PropertyBag object = new PropertyBag(objectProperties);
+    @BeforeEach
+    void setUp() {
+        PropertyBag object = new PropertyBag(objectProperties, true);
         object.put("id", "object1");
         object.put("property1", "object1-property1-value");
         object.put("property2", "object1-property2-value");
         objects.add(object);
 
-        object = new PropertyBag(objectProperties);
+        object = new PropertyBag(objectProperties, true);
         object.put("id", "object2");
         object.put("property1", "object2-property1-value");
         object.put("property2", "object2-property2-value");
@@ -89,28 +89,28 @@ public class PowsyblWriterSequenceFixTest {
     // have been added to the triple store,
     // all attempts to write them to XML should be successful
 
-    @Test(expected = RDFHandlerException.class)
-    public void testRioWriteWithBadAddSequence() {
-        test(false, this::addPropertiesObjects);
-    }
-
-    @Test(expected = RDFHandlerException.class)
-    public void testRioWriteWithProperObjectSequenceBadTypeSequence() {
-        test(false, this::addObjectPropertiesType);
+    @Test
+    void testRioWriteWithBadAddSequence() {
+        assertThrows(RDFHandlerException.class, () -> test(false, this::addPropertiesObjects));
     }
 
     @Test
-    public void testRioWriteWithProperAddSequence() {
+    void testRioWriteWithProperObjectSequenceBadTypeSequence() {
+        assertThrows(RDFHandlerException.class, () -> test(false, this::addObjectPropertiesType));
+    }
+
+    @Test
+    void testRioWriteWithProperAddSequence() {
         test(false, this::addObjectTypeProperties);
     }
 
     @Test
-    public void testRioWriteOverrideWithBadAddSequence() {
+    void testRioWriteOverrideWithBadAddSequence() {
         test(true, this::addPropertiesObjects);
     }
 
     @Test
-    public void testRioWriteOverrideWithProperObjectSequenceBadTypeSequence() {
+    void testRioWriteOverrideWithProperObjectSequenceBadTypeSequence() {
         test(true, this::addObjectPropertiesType);
     }
 
@@ -126,13 +126,13 @@ public class PowsyblWriterSequenceFixTest {
         ts.write(ds);
 
         try (InputStream is = ds.newInputStream(contextName)) {
-            compareXml(getClass().getResourceAsStream(expected), is);
+            assertXmlEquals(getClass().getResourceAsStream(expected), is);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void compareXml(InputStream expected, InputStream actual) {
+    private static void assertXmlEquals(InputStream expected, InputStream actual) {
         Source sexpected = Input.fromStream(expected).build();
         Source sactual = Input.fromStream(actual).build();
         Diff myDiff = DiffBuilder

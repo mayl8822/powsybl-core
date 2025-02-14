@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion;
 
@@ -12,13 +13,15 @@ import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.ShuntCompensator;
 import com.powsybl.triplestore.api.PropertyBag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 public class RegulatingControlMappingForShuntCompensators {
 
@@ -75,7 +78,7 @@ public class RegulatingControlMappingForShuntCompensators {
         // But no regulating control information has been found
         // We create default regulation data
         if (rcId == null) {
-            context.missing("Regulating Control ID not defined");
+            LOG.trace("Regulating control Id not present for shunt compensator {}", shuntCompensator.getId());
             setDefaultRegulatingControl(shuntCompensator);
             return;
         }
@@ -108,14 +111,14 @@ public class RegulatingControlMappingForShuntCompensators {
             // both the equipment participation in the control and
             // the regulating control itself should be enabled
             shuntCompensator.setVoltageRegulatorOn(rc.enabled && controlEnabled);
-        } else  {
+        } else {
             shuntCompensator.setVoltageRegulatorOn(false);
         }
         // Take default terminal if it has not been defined in CGMES files (it is never null)
         shuntCompensator.setRegulatingTerminal(RegulatingTerminalMapper
                 .mapForVoltageControl(rc.cgmesTerminal, context)
                 .orElse(shuntCompensator.getTerminal()));
-        shuntCompensator.setProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "RegulatingControl", rcId);
+        shuntCompensator.setProperty(Conversion.PROPERTY_REGULATING_CONTROL, rcId);
     }
 
     private static class CgmesRegulatingControlForShuntCompensator {
@@ -127,4 +130,6 @@ public class RegulatingControlMappingForShuntCompensators {
             this.controlEnabled = controlEnabled;
         }
     }
+
+    private static final Logger LOG = LoggerFactory.getLogger(RegulatingControlMappingForShuntCompensators.class);
 }

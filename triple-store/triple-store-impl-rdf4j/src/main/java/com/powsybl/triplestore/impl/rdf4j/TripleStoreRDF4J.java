@@ -3,14 +3,14 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.impl.rdf4j;
 
 import com.powsybl.commons.datasource.DataSource;
 import com.powsybl.triplestore.api.*;
-import org.eclipse.rdf4j.IsolationLevels;
-import org.eclipse.rdf4j.common.iteration.Iterations;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.*;
 import org.eclipse.rdf4j.model.util.URIUtil;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -39,13 +39,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
 
     static final String NAME = "rdf4j";
 
     public TripleStoreRDF4J() {
+        this(new TripleStoreOptions());
+    }
+
+    public TripleStoreRDF4J(TripleStoreOptions options) {
+        super(options);
         repo = new SailRepository(new MemoryStore());
         repo.init();
     }
@@ -146,7 +151,7 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
     @Override
     public Set<String> contextNames() {
         try (RepositoryConnection conn = repo.getConnection()) {
-            return Iterations.stream(conn.getContextIDs()).map(Resource::stringValue).collect(Collectors.toSet());
+            return conn.getContextIDs().stream().map(Resource::stringValue).collect(Collectors.toSet());
         }
     }
 
@@ -183,7 +188,7 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
                 List<String> names = r.getBindingNames();
                 while (r.hasNext()) {
                     BindingSet s = r.next();
-                    PropertyBag result = new PropertyBag(names);
+                    PropertyBag result = new PropertyBag(names, getOptions().isRemoveInitialUnderscoreForIdentifiers(), getOptions().unescapeIdentifiers());
 
                     names.forEach(name -> {
                         if (s.hasBinding(name)) {
@@ -204,20 +209,20 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
     public void add(TripleStore source) {
         Objects.requireNonNull(source);
         Repository sourceRepo;
-        if (source instanceof TripleStoreRDF4J) {
-            sourceRepo = ((TripleStoreRDF4J) source).repo;
+        if (source instanceof TripleStoreRDF4J tripleStoreRDF4J) {
+            sourceRepo = tripleStoreRDF4J.repo;
             try (RepositoryConnection sourceConn = sourceRepo.getConnection()) {
                 try (RepositoryConnection targetConn = repo.getConnection()) {
                     copyNamespacesToRepository(sourceConn, targetConn);
                     // copy statements
                     RepositoryResult<Resource> contexts = sourceConn.getContextIDs();
-                    for (Resource sourceContext : Iterations.asList(contexts)) {
+                    for (Resource sourceContext : contexts) {
                         Resource targetContext = context(targetConn, sourceContext.stringValue());
 
                         RepositoryResult<Statement> statements;
                         statements = sourceConn.getStatements(null, null, null, sourceContext);
                         // add statements to the new repository
-                        for (Statement statement : Iterations.asList(statements)) {
+                        for (Statement statement : statements) {
                             targetConn.add(statement, targetContext);
                         }
                     }
@@ -231,7 +236,7 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
 
     private static void copyNamespacesToRepository(RepositoryConnection sourceConn, RepositoryConnection targetConn) {
         RepositoryResult<Namespace> ns = sourceConn.getNamespaces();
-        for (Namespace namespace : Iterations.asList(ns)) {
+        for (Namespace namespace : ns) {
             targetConn.setNamespace(namespace.getPrefix(), namespace.getName());
         }
     }
@@ -277,7 +282,7 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
         Statement parentSt = cnx.getValueFactory().createStatement(resource, parentPredicate, parentObject);
         cnx.add(parentSt, context);
         // add rest of statements for subject
-        createStatements(cnx, objNs, objType, statement, context,  resource);
+        createStatements(cnx, objNs, objType, statement, context, resource);
         return resource.getLocalName();
     }
 
@@ -358,14 +363,18 @@ public class TripleStoreRDF4J extends AbstractPowsyblTripleStore {
                 throw new TripleStoreException(message);
             }
             // Then all the other statements
-            for (final Statement st : model.filter(subject, null, null)) {
-                if (st.getPredicate().equals(RDF.TYPE)) {
-                    continue;
-                }
-                writer.handleStatement(st);
-            }
+            writeSubjectStatements(model, writer, subject);
         }
         writer.endRDF();
+    }
+
+    private void writeSubjectStatements(Model model, RDFWriter writer, Resource subject) {
+        for (final Statement st : model.filter(subject, null, null)) {
+            if (st.getPredicate().equals(RDF.TYPE)) {
+                continue;
+            }
+            writer.handleStatement(st);
+        }
     }
 
     private static int statementsCount(RepositoryConnection conn, Resource ctx) {

@@ -3,23 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.dynamicsimulation;
 
-import java.util.Map;
-import java.util.Objects;
-
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableMap;
 import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.extensions.AbstractExtendable;
 import com.powsybl.commons.extensions.Extension;
 import com.powsybl.commons.extensions.ExtensionConfigLoader;
 import com.powsybl.commons.extensions.ExtensionProviders;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
+
 /**
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
 public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimulationParameters> {
 
@@ -35,8 +37,8 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
 
     public static final String VERSION = "1.0";
 
-    public static final int DEFAULT_START_TIME = 0;
-    public static final int DEFAULT_STOP_TIME = 1;
+    public static final double DEFAULT_START_TIME = 0d;
+    public static final double DEFAULT_STOP_TIME = 10d;
 
     private static final Supplier<ExtensionProviders<ConfigLoader>> SUPPLIER = Suppliers
         .memoize(() -> ExtensionProviders.createProvider(ConfigLoader.class, "dynamic-simulation-parameters"));
@@ -63,14 +65,14 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
 
         platformConfig.getOptionalModuleConfig("dynamic-simulation-default-parameters")
             .ifPresent(config -> {
-                parameters.setStartTime(config.getIntProperty("startTime", DEFAULT_START_TIME));
-                parameters.setStopTime(config.getIntProperty("stopTime", DEFAULT_STOP_TIME));
+                parameters.setStartTime(config.getDoubleProperty("startTime", DEFAULT_START_TIME));
+                parameters.setStopTime(config.getDoubleProperty("stopTime", DEFAULT_STOP_TIME));
             });
     }
 
-    private int startTime;
+    private double startTime;
 
-    private int stopTime;
+    private double stopTime;
 
     /**
      * Constructor with given parameters
@@ -80,12 +82,12 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
      * @param stopTime  instant of time at which the dynamic simulation ends, in
      *                  seconds
      */
-    public DynamicSimulationParameters(int startTime, int stopTime) {
+    public DynamicSimulationParameters(double startTime, double stopTime) {
         if (startTime < 0) {
-            throw new AssertionError("Start time should be zero or positive");
+            throw new IllegalStateException("Start time should be zero or positive");
         }
         if (stopTime <= startTime) {
-            throw new AssertionError("Stop time should be greater than start time");
+            throw new IllegalStateException("Stop time should be greater than start time");
         }
         this.startTime = startTime;
         this.stopTime = stopTime;
@@ -101,7 +103,7 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
         stopTime = other.stopTime;
     }
 
-    public int getStartTime() {
+    public double getStartTime() {
         return startTime;
     }
 
@@ -111,15 +113,15 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
      *                  seconds
      * @return
      */
-    public DynamicSimulationParameters setStartTime(int startTime) {
+    public DynamicSimulationParameters setStartTime(double startTime) {
         if (startTime < 0) {
-            throw new AssertionError("Start time should be zero or positive");
+            throw new IllegalStateException("Start time should be zero or positive");
         }
         this.startTime = startTime;
         return this;
     }
 
-    public int getStopTime() {
+    public double getStopTime() {
         return stopTime;
     }
 
@@ -129,17 +131,19 @@ public class DynamicSimulationParameters extends AbstractExtendable<DynamicSimul
      *                 seconds
      * @return
      */
-    public DynamicSimulationParameters setStopTime(int stopTime) {
+    public DynamicSimulationParameters setStopTime(double stopTime) {
         if (stopTime <= startTime) {
-            throw new AssertionError("Stop time should be greater than start time");
+            throw new IllegalStateException("Stop time should be greater than start time");
         }
         this.stopTime = stopTime;
         return this;
     }
 
     protected Map<String, Object> toMap() {
-        return ImmutableMap.of("startTime", startTime,
-            "stopTime", stopTime);
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("startTime", startTime);
+        map.put("stopTime", stopTime);
+        return Collections.unmodifiableMap(map);
     }
 
     public DynamicSimulationParameters copy() {

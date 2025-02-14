@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network;
 
@@ -134,12 +135,12 @@ import java.util.Optional;
  * that belong to the same substation.
  * <p>To create a 2 windings transformer, see {@link TwoWindingsTransformerAdder}
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  * @see RatioTapChanger
  * @see PhaseTapChanger
  * @see TwoWindingsTransformerAdder
  */
-public interface TwoWindingsTransformer extends Branch<TwoWindingsTransformer>, RatioTapChangerHolder, PhaseTapChangerHolder {
+public interface TwoWindingsTransformer extends Branch<TwoWindingsTransformer>, Connectable<TwoWindingsTransformer>, RatioTapChangerHolder, PhaseTapChangerHolder {
 
     Optional<Substation> getSubstation();
 

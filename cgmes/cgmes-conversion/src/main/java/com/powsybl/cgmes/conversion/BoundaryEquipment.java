@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion;
@@ -18,8 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 
 class BoundaryEquipment {
@@ -39,22 +40,12 @@ class BoundaryEquipment {
     }
 
     EquipmentAtBoundaryConversion createConversion(Context context) {
-        EquipmentAtBoundaryConversion c = null;
-        switch (type) {
-            case AC_LINE_SEGMENT:
-                c = new ACLineSegmentConversion(propertyBags.get(0), context);
-                break;
-            case SWITCH:
-                c = new SwitchConversion(propertyBags.get(0), context);
-                break;
-            case TRANSFORMER:
-                c = new TwoWindingsTransformerConversion(propertyBags, context);
-                break;
-            case EQUIVALENT_BRANCH:
-                c = new EquivalentBranchConversion(propertyBags.get(0), context);
-                break;
-        }
-        return c;
+        return switch (type) {
+            case AC_LINE_SEGMENT -> new ACLineSegmentConversion(propertyBags.get(0), context);
+            case SWITCH -> new SwitchConversion(propertyBags.get(0), context);
+            case TRANSFORMER -> new TwoWindingsTransformerConversion(propertyBags, context);
+            case EQUIVALENT_BRANCH -> new EquivalentBranchConversion(propertyBags.get(0), context);
+        };
     }
 
     boolean isAcLineSegmentDisconnected(Context context) {
@@ -72,11 +63,12 @@ class BoundaryEquipment {
     }
 
     void log() {
-        if (LOG.isDebugEnabled()) {
+        if (LOG.isTraceEnabled()) {
+            String title = "BoundaryEquipment " + type.toString();
             if (propertyBags.size() == 1) {
-                LOG.debug(propertyBags.get(0).tabulateLocals(type.toString()));
+                LOG.trace(propertyBags.get(0).tabulateLocals(title));
             } else {
-                propertyBags.forEach(p -> LOG.debug(p.tabulateLocals(type.toString())));
+                propertyBags.forEach(p -> LOG.trace(p.tabulateLocals(title)));
             }
         }
     }

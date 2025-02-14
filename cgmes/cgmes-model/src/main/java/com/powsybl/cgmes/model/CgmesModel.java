@@ -3,15 +3,17 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.model;
 
 import com.powsybl.commons.datasource.DataSource;
 import com.powsybl.commons.datasource.ReadOnlyDataSource;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.triplestore.api.PropertyBags;
 import com.powsybl.triplestore.api.TripleStore;
-import org.joda.time.DateTime;
+import java.time.ZonedDateTime;
 
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -19,16 +21,16 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public interface CgmesModel {
 
-    // FIXME generic cgmes models may not have an underlying triplestore
+    // Although generic cgmes models may not have an underlying triplestore
     TripleStore tripleStore();
 
     Properties getProperties();
 
-    default PropertyBags fullModel(String cgmesProfile) {
+    default PropertyBags fullModels() {
         return new PropertyBags();
     }
 
@@ -38,9 +40,9 @@ public interface CgmesModel {
 
     String version();
 
-    DateTime scenarioTime();
+    ZonedDateTime scenarioTime();
 
-    DateTime created();
+    ZonedDateTime created();
 
     boolean isNodeBreaker();
 
@@ -57,6 +59,10 @@ public interface CgmesModel {
     PropertyBags boundaryNodes();
 
     PropertyBags baseVoltages();
+
+    PropertyBags countrySourcingActors(String countryName);
+
+    PropertyBags sourcingActor(String sourcingActor);
 
     PropertyBags substations();
 
@@ -86,12 +92,13 @@ public interface CgmesModel {
 
     PropertyBags transformerEnds();
 
-    // Transformer ends grouped by transformer
-    Map<String, PropertyBags> groupedTransformerEnds();
-
     PropertyBags ratioTapChangers();
 
+    PropertyBags ratioTapChangerTablePoints();
+
     PropertyBags phaseTapChangers();
+
+    PropertyBags phaseTapChangerTablePoints();
 
     PropertyBags regulatingControls();
 
@@ -103,11 +110,37 @@ public interface CgmesModel {
 
     PropertyBags equivalentShunts();
 
-    PropertyBags nonlinearShuntCompensatorPoints(String id);
+    /**
+     * Query all NonlinearShuntCompensatorPoint in the CgmesModel.
+     *
+     * @return A {@link PropertyBags} with the shunt compensators points properties.
+     */
+    PropertyBags nonlinearShuntCompensatorPoints();
 
     PropertyBags staticVarCompensators();
 
-    PropertyBags synchronousMachines();
+    /**
+     * @deprecated Synchronous machines can be generators or condensers, they are obtained separately.
+     * Use {@link #synchronousMachinesGenerators()} or {@link #synchronousMachinesCondensers()} instead.
+     */
+    @Deprecated(since = "6.3.0", forRemoval = true)
+    default PropertyBags synchronousMachines() {
+        return synchronousMachinesGenerators();
+    }
+
+    default PropertyBags synchronousMachinesGenerators() {
+        return new PropertyBags();
+    }
+
+    default PropertyBags synchronousMachinesCondensers() {
+        return new PropertyBags();
+    }
+
+    default PropertyBags synchronousMachinesAll() {
+        PropertyBags p = new PropertyBags(synchronousMachinesGenerators());
+        p.addAll(synchronousMachinesCondensers());
+        return p;
+    }
 
     PropertyBags equivalentInjections();
 
@@ -118,14 +151,6 @@ public interface CgmesModel {
     PropertyBags asynchronousMachines();
 
     PropertyBags reactiveCapabilityCurveData();
-
-    PropertyBags ratioTapChangerTablesPoints();
-
-    PropertyBags phaseTapChangerTablesPoints();
-
-    PropertyBags ratioTapChangerTable(String tableId);
-
-    PropertyBags phaseTapChangerTable(String tableId);
 
     PropertyBags controlAreas();
 
@@ -144,6 +169,10 @@ public interface CgmesModel {
     }
 
     default PropertyBags graph() {
+        return new PropertyBags();
+    }
+
+    default PropertyBags grounds() {
         return new PropertyBags();
     }
 
@@ -175,48 +204,13 @@ public interface CgmesModel {
         throw new UnsupportedOperationException();
     }
 
-    void read(ReadOnlyDataSource ds);
+    void read(ReadOnlyDataSource ds, ReportNode reportNode);
 
-    void read(ReadOnlyDataSource mainDataSource, ReadOnlyDataSource alternativeDataSourceForBoundary);
+    void read(ReadOnlyDataSource mainDataSource, ReadOnlyDataSource alternativeDataSourceForBoundary, ReportNode reportNode);
 
-    void read(InputStream is, String baseName, String contextName);
+    void read(InputStream is, String baseName, String contextName, ReportNode reportNode);
 
     // Helper mappings
-
-    /**
-     * @deprecated Not used anymore. To get the CGMES Terminal ID of an equipment, use alias i.e.
-     * {@code equipement.getAlias("CGMES.Terminal1")}
-     */
-    @Deprecated
-    default String terminalForEquipment(String conductingEquipmentId, int sequenceNumber) {
-        return null;
-    }
-
-    /**
-     * @deprecated Use {@link #ratioTapChangerListForPowerTransformer(String)} instead.
-     */
-    @Deprecated
-    default String ratioTapChangerForPowerTransformer(String powerTransformerId) {
-        return ratioTapChangerListForPowerTransformer(powerTransformerId).stream().filter(Objects::nonNull).findFirst().orElse(null);
-    }
-
-    /**
-     * @deprecated Use {@link #phaseTapChangerListForPowerTransformer(String)} instead.
-     */
-    @Deprecated
-    default String phaseTapChangerForPowerTransformer(String powerTransformerId) {
-        return phaseTapChangerListForPowerTransformer(powerTransformerId).stream().filter(Objects::nonNull).findFirst().orElse(null);
-    }
-
-    default List<String> ratioTapChangerListForPowerTransformer(String powerTransformerId) {
-        return Collections.singletonList(ratioTapChangerForPowerTransformer(powerTransformerId));
-    }
-
-    default List<String> phaseTapChangerListForPowerTransformer(String powerTransformerId) {
-        return Collections.singletonList(phaseTapChangerForPowerTransformer(powerTransformerId));
-    }
-
-    // TODO(Luma) refactoring node-breaker conversion temporal
 
     /**
      * Obtain the substation of a given terminal.
@@ -233,6 +227,10 @@ public interface CgmesModel {
      * @param nodeBreaker to determine the terminal container, use node-breaker connectivity information first
      */
     String voltageLevel(CgmesTerminal t, boolean nodeBreaker);
+
+    Optional<String> node(CgmesTerminal t, boolean nodeBreaker);
+
+    Optional<CgmesContainer> nodeContainer(String nodeId);
 
     CgmesContainer container(String containerId);
 

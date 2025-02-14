@@ -3,11 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.hvdc;
 
 import com.powsybl.cgmes.conversion.Context;
+import com.powsybl.cgmes.conversion.Conversion;
 import com.powsybl.cgmes.conversion.elements.hvdc.DcLineSegmentConversion.DcLineSegmentConverter;
 import com.powsybl.cgmes.conversion.elements.hvdc.Hvdc.HvdcConverter;
 import com.powsybl.cgmes.model.CgmesDcTerminal;
@@ -28,8 +30,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 public class CgmesDcConversion {
 
@@ -49,11 +51,11 @@ public class CgmesDcConversion {
         // Get hvdc configurations
         AcDcConverterNodes acDcConverterNodes = new AcDcConverterNodes(cgmesModel);
 
-        Adjacency adjacency = new Adjacency(cgmesModel, acDcConverterNodes);
+        Adjacency adjacency = new Adjacency(cgmesModel, context, acDcConverterNodes);
         if (adjacency.isEmpty()) {
             return;
         }
-        NodeEquipment nodeEquipment = new NodeEquipment(cgmesModel, acDcConverterNodes, adjacency);
+        NodeEquipment nodeEquipment = new NodeEquipment(cgmesModel, context, acDcConverterNodes, adjacency);
         Islands islands = new Islands(adjacency);
 
         IslandsEnds islandsEnds = new IslandsEnds();
@@ -181,6 +183,11 @@ public class CgmesDcConversion {
 
         if (createHvdc()) {
             setCommonDataUsed();
+            // Add the second line segment identifier as an alias of the line created
+            HvdcLine line = context.network().getHvdcLine(dcLineSegmentId1);
+            if (line != null) {
+                line.addAlias(dcLineSegmentId2, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "DCLineSegment2");
+            }
             context.dc().setCgmesDcLineSegmentUsed(dcLineSegmentId2);
         }
     }

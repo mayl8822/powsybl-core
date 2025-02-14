@@ -3,63 +3,66 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ieeecdf.converter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import org.junit.Test;
-
-import com.powsybl.commons.AbstractConverterTest;
-import com.powsybl.commons.datasource.FileDataSource;
+import com.powsybl.commons.datasource.DirectoryDataSource;
 import com.powsybl.commons.datasource.ResourceDataSource;
 import com.powsybl.commons.datasource.ResourceSet;
-import com.powsybl.iidm.import_.Importer;
+import com.powsybl.commons.test.AbstractSerDeTest;
+import com.powsybl.iidm.network.Importer;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.xml.NetworkXml;
+import com.powsybl.iidm.serde.NetworkSerDe;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.resultscompletion.LoadFlowResultsCompletion;
 import com.powsybl.loadflow.resultscompletion.LoadFlowResultsCompletionParameters;
 import com.powsybl.loadflow.validation.ValidationConfig;
 import com.powsybl.loadflow.validation.ValidationType;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static com.powsybl.commons.test.ComparisonUtils.assertXmlEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class IeeeCdfImporterTest extends AbstractConverterTest {
+class IeeeCdfImporterTest extends AbstractSerDeTest {
 
     @Test
-    public void baseTest() {
+    void baseTest() {
         Importer importer = new IeeeCdfImporter();
         assertEquals("IEEE-CDF", importer.getFormat());
         assertEquals("IEEE Common Data Format to IIDM converter", importer.getComment());
+        assertEquals(List.of("txt"), importer.getSupportedExtensions());
         assertEquals(1, importer.getParameters().size());
         assertEquals("ignore-base-voltage", importer.getParameters().get(0).getName());
     }
 
     @Test
-    public void copyTest() {
+    void copyTest() {
         new IeeeCdfImporter().copy(new ResourceDataSource("ieee14cdf", new ResourceSet("/", "ieee14cdf.txt")),
-            new FileDataSource(fileSystem.getPath("/work"), "copy"));
+            new DirectoryDataSource(fileSystem.getPath("/work"), "copy"));
         assertTrue(Files.exists(fileSystem.getPath("/work").resolve("copy.txt")));
     }
 
     @Test
-    public void existsTest() {
+    void existsTest() {
         assertTrue(new IeeeCdfImporter().exists(new ResourceDataSource("ieee14cdf", new ResourceSet("/", "ieee14cdf.txt"))));
     }
 
     private void testNetwork(Network network) throws IOException {
         Path file = fileSystem.getPath("/work/" + network.getId() + ".xiidm");
-        NetworkXml.write(network, file);
+        NetworkSerDe.write(network, file);
         try (InputStream is = Files.newInputStream(file)) {
-            compareTxt(getClass().getResourceAsStream("/" + network.getId() + ".xiidm"), is);
+            assertXmlEquals(getClass().getResourceAsStream("/" + network.getId() + ".xiidm"), is);
         }
     }
 
@@ -83,7 +86,7 @@ public class IeeeCdfImporterTest extends AbstractConverterTest {
         return config;
     }
 
-    public static void computeMissingFlows(Network network, LoadFlowParameters lfparams) {
+    static void computeMissingFlows(Network network, LoadFlowParameters lfparams) {
 
         LoadFlowResultsCompletionParameters p = new LoadFlowResultsCompletionParameters(
             LoadFlowResultsCompletionParameters.EPSILON_X_DEFAULT,
@@ -94,39 +97,54 @@ public class IeeeCdfImporterTest extends AbstractConverterTest {
     }
 
     @Test
-    public void testIeee9() throws IOException {
+    void testIeee9() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create9());
     }
 
     @Test
-    public void testIeee14() throws IOException {
+    void testIeee14() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create14());
     }
 
     @Test
-    public void testIeee14Solved() throws IOException {
+    void testIeee14Solved() throws IOException {
         Network network = IeeeCdfNetworkFactory.create14Solved();
         testSolved(network);
         testNetwork(network);
     }
 
     @Test
-    public void testIeee30() throws IOException {
+    void testIeee30() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create30());
     }
 
     @Test
-    public void testIeee57() throws IOException {
+    void testIeee57() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create57());
     }
 
     @Test
-    public void testIeee118() throws IOException {
+    void testIeee118() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create118());
     }
 
     @Test
-    public void testIeee300() throws IOException {
+    void testIeee300() throws IOException {
         testNetwork(IeeeCdfNetworkFactory.create300());
+    }
+
+    @Test
+    void testIeeezeroimpedance9() throws IOException {
+        testNetwork(IeeeCdfNetworkFactory.create9zeroimpedance());
+    }
+
+    @Test
+    void testIeee33() throws IOException {
+        testNetwork(IeeeCdfNetworkFactory.create33());
+    }
+
+    @Test
+    void testIeee69() throws IOException {
+        testNetwork(IeeeCdfNetworkFactory.create69());
     }
 }

@@ -3,12 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.shortcircuit.tools;
 
 import com.google.auto.service.AutoService;
 import com.powsybl.computation.ComputationManager;
-import com.powsybl.iidm.import_.Importers;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.shortcircuit.*;
 import com.powsybl.shortcircuit.converter.ShortCircuitAnalysisResultExporters;
@@ -84,9 +84,9 @@ public class ShortCircuitAnalysisTool implements Tool {
     static Network readNetwork(CommandLine line, ToolRunningContext context) {
         ToolOptions options = new ToolOptions(line, context);
         Path caseFile = options.getPath(CASE_FILE_OPTION)
-                .orElseThrow(AssertionError::new);
+                .orElseThrow(IllegalStateException::new);
         context.getOutputStream().println("Loading network '" + caseFile + "'");
-        return Importers.loadNetwork(caseFile);
+        return Network.read(caseFile);
     }
 
     static ShortCircuitInput readInput(CommandLine line, ToolRunningContext context) throws ParseException {

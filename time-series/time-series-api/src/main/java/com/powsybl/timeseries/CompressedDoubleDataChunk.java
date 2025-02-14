@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.timeseries;
 
@@ -17,7 +18,7 @@ import java.util.stream.StreamSupport;
 /**
  * RLE (Run-Length encoding) compressed double data chunk.
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class CompressedDoubleDataChunk extends AbstractCompressedDataChunk implements DoubleDataChunk {
 
@@ -95,7 +96,7 @@ public class CompressedDoubleDataChunk extends AbstractCompressedDataChunk imple
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                DoublePoint point = new DoublePoint(i, index.getTimeAt(i), stepValues[step]);
+                DoublePoint point = new DoublePoint(i, index.getInstantAt(i), stepValues[step]);
                 i += stepLengths[step];
                 step++;
                 return point;
@@ -145,7 +146,7 @@ public class CompressedDoubleDataChunk extends AbstractCompressedDataChunk imple
             }
             index += stepLengths[step];
         }
-        throw new AssertionError("Should not happen");
+        throw new IllegalStateException("Should not happen");
     }
 
     @Override
@@ -208,8 +209,7 @@ public class CompressedDoubleDataChunk extends AbstractCompressedDataChunk imple
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof CompressedDoubleDataChunk) {
-            CompressedDoubleDataChunk other = (CompressedDoubleDataChunk) obj;
+        if (obj instanceof CompressedDoubleDataChunk other) {
             return offset == other.offset &&
                     uncompressedLength == other.uncompressedLength &&
                     Arrays.equals(stepLengths, other.stepLengths) &&

@@ -3,23 +3,24 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security;
 
-import com.powsybl.iidm.network.Branch;
+import com.powsybl.iidm.network.ThreeSides;
 
 import java.util.Comparator;
 
 /**
  * Utility methods for {@link LimitViolation}s, in particular to ease their building and comparison.
  *
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
 public final class LimitViolations {
 
     private static final Comparator<LimitViolation> COMPARATOR = Comparator.comparing(LimitViolation::getLimitType)
             .thenComparing(LimitViolation::getSubjectId)
-            .thenComparing(LimitViolation::getSide, Comparator.nullsFirst(Branch.Side::compareTo))
+            .thenComparing(LimitViolation::getSide, Comparator.nullsFirst(ThreeSides::compareTo))
             .thenComparing(LimitViolation::getLimitName, Comparator.nullsFirst(String::compareTo))
             .thenComparing(LimitViolation::getAcceptableDuration)
             .thenComparing(LimitViolation::getLimit)
@@ -58,7 +59,21 @@ public final class LimitViolations {
     }
 
     /**
-     * A builder for high short circuit current limit violations.
+     * A builder for low voltageAngle limit violations.
+     */
+    public static LimitViolationBuilder lowVoltageAngle() {
+        return new LimitViolationBuilder().type(LimitViolationType.LOW_VOLTAGE_ANGLE);
+    }
+
+    /**
+     * A builder for high voltageAngle limit violations.
+     */
+    public static LimitViolationBuilder highVoltageAngle() {
+        return new LimitViolationBuilder().type(LimitViolationType.HIGH_VOLTAGE_ANGLE);
+    }
+
+    /**
+     * A builder for high short-circuit current limit violations.
      */
     public static LimitViolationBuilder highShortCircuitCurrent() {
         return new LimitViolationBuilder().type(LimitViolationType.HIGH_SHORT_CIRCUIT_CURRENT);
@@ -79,7 +94,7 @@ public final class LimitViolations {
     }
 
     /**
-     * A builder for low short circuit current limit violations.
+     * A builder for low short-circuit current limit violations.
      */
     public static LimitViolationBuilder lowShortCircuitCurrent() {
         return new LimitViolationBuilder().type(LimitViolationType.LOW_SHORT_CIRCUIT_CURRENT);

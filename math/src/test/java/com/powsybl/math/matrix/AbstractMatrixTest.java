@@ -3,12 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.math.matrix;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,12 +18,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public abstract class AbstractMatrixTest {
+abstract class AbstractMatrixTest {
 
     protected static final double EPSILON = Math.pow(10, -15);
 
@@ -39,7 +40,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void checkBoundsTest() {
+    void checkBoundsTest() {
         MatrixFactory matrixFactory = getMatrixFactory();
         assertThrows(MatrixException.class, () -> matrixFactory.create(-1, 1, 1));
         assertThrows(MatrixException.class, () -> matrixFactory.create(1, -1, 1));
@@ -54,7 +55,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testMultiplication() {
+    void testMultiplication() {
         Matrix a = createA(getMatrixFactory());
         Matrix b = getMatrixFactory().create(2, 1, 2);
         b.set(0, 0, 4);
@@ -68,10 +69,19 @@ public abstract class AbstractMatrixTest {
         assertEquals(4, c.get(0, 0), EPSILON);
         assertEquals(15, c.get(1, 0), EPSILON);
         assertEquals(8, c.get(2, 0), EPSILON);
+
+        Matrix cs2 = a.times(b, 2);
+        DenseMatrix c2 = cs2.toDense();
+
+        assertEquals(3, c2.getRowCount());
+        assertEquals(1, c2.getColumnCount());
+        assertEquals(8, c2.get(0, 0), EPSILON);
+        assertEquals(30, c2.get(1, 0), EPSILON);
+        assertEquals(16, c2.get(2, 0), EPSILON);
     }
 
     @Test
-    public void testAddition() {
+    void testAddition() {
         /*
         1 0
         0 3
@@ -106,7 +116,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testAdditionWithEmptyColumnInTheMiddle() {
+    void testAdditionWithEmptyColumnInTheMiddle() {
         /*
         1 0 0
         0 0 3
@@ -144,7 +154,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testIterateNonZeroValue() {
+    void testIterateNonZeroValue() {
         Matrix a = createA(getMatrixFactory());
         a.iterateNonZeroValue((i, j, value) -> {
             if (i == 0 && j == 0) {
@@ -160,7 +170,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testIterateNonZeroValueOfColumn() {
+    void testIterateNonZeroValueOfColumn() {
         Matrix a = createA(getMatrixFactory());
         List<Double> nonZeroValues = new ArrayList<>();
         a.iterateNonZeroValueOfColumn(0, (i, j, value) -> {
@@ -190,7 +200,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testDecompose() {
+    void testDecompose() {
         // 2  3  0  0  0
         // 3  0  4  0  6
         // 0 -1 -3  2  0
@@ -253,18 +263,19 @@ public abstract class AbstractMatrixTest {
         }
     }
 
-    @Test(expected = MatrixException.class)
-    public void testDecompositionFailure() {
+    @Test
+    void testDecompositionFailure() {
         Matrix matrix = getMatrixFactory().create(5, 5, 12);
-
-        try (LUDecomposition decomposition = matrix.decomposeLU()) {
-            double[] x = {0, 0, 0, 0, 0};
-            decomposition.solve(x);
-        }
+        assertThrows(MatrixException.class, () -> {
+            try (LUDecomposition decomposition = matrix.decomposeLU()) {
+                double[] x = {0, 0, 0, 0, 0};
+                decomposition.solve(x);
+            }
+        });
     }
 
     @Test
-    public void testTransposedDecompose() {
+    void testTransposedDecompose() {
         // 2  3  0  0  0
         // 3  0 -1  0  4
         // 0  4 -3  1  2
@@ -326,13 +337,13 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testDecomposeNonSquare() {
+    void testDecomposeNonSquare() {
         Matrix matrix = getMatrixFactory().create(1, 2, 4);
         assertThrows(MatrixException.class, () -> decomposeThenSolve(matrix, new double[] {}));
     }
 
     @Test
-    public void testDenseEquals() {
+    void testDenseEquals() {
         Matrix a1 = createA(getMatrixFactory());
         Matrix a2 = createA(getMatrixFactory());
         Matrix b1 = getMatrixFactory().create(5, 5, 0);
@@ -344,7 +355,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void toTest() {
+    void toTest() {
         Matrix a = createA(getMatrixFactory());
         Matrix a2 = a.to(getOtherMatrixFactory());
         Matrix a3 = a2.to(getMatrixFactory());
@@ -354,7 +365,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testAddValue() {
+    void testAddValue() {
         Matrix a = getMatrixFactory().create(2, 2, 2);
         a.add(0, 0, 1d);
         a.add(0, 0, 1d);
@@ -369,7 +380,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testAddValue2() {
+    void testAddValue2() {
         Matrix a = getMatrixFactory().create(2, 2, 2);
         a.add(0, 0, 1d);
         a.add(0, 1, 1d);
@@ -382,7 +393,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testIssueWithEmptyColumns() {
+    void testIssueWithEmptyColumns() {
         Matrix a = getMatrixFactory().create(2, 2, 2);
         a.set(0, 0, 1d);
         // second column is empty
@@ -390,7 +401,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testReset() {
+    void testReset() {
         Matrix a = getMatrixFactory().create(3, 3, 3);
         // 1 0 4
         // 0 2 0
@@ -419,7 +430,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testDeprecated() {
+    void testDeprecated() {
         Matrix a = getMatrixFactory().create(2, 2, 2);
         assertEquals(a.getRowCount(), a.getM());
         assertEquals(a.getColumnCount(), a.getN());
@@ -431,7 +442,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testAddAndGetIndex() {
+    void testAddAndGetIndex() {
         Matrix a = getMatrixFactory().create(3, 3, 3);
         // 1 0 4
         // 0 2 0
@@ -465,7 +476,7 @@ public abstract class AbstractMatrixTest {
     }
 
     @Test
-    public void testTranspose() {
+    void testTranspose() {
         Matrix a = createA(getMatrixFactory());
         DenseMatrix at = a.transpose().toDense();
         assertEquals(2, at.getRowCount());

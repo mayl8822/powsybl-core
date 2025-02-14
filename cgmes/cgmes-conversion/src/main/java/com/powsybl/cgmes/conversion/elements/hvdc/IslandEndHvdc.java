@@ -3,36 +3,33 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.hvdc;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.powsybl.cgmes.conversion.elements.hvdc.Adjacency.AdjacentType;
 import com.powsybl.cgmes.conversion.elements.hvdc.NodeEquipment.EquipmentReference;
 import com.powsybl.commons.PowsyblException;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 /**
  *
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 class IslandEndHvdc {
 
     // TN: n transformers (n >= 0), C1: one acDcConverter, LS1: one dcLineSegment
     // TN: n transformers (n >= 0), C2: two acDcConverters, LS1: one dcLineSegment
+    // TN: n transformers (n >= 0), CN: n acDcConverters, LSN: 2 * CN (Two dcLineSegments by acDcConverter)
     // TN: n transformers (n >= 0), C1: one acDcConverter, LS2: two dcLineSegments
     // TN: n transformers (n >= 0), CN: n acDcConverters (usually 2), LSN: n dcLineSegments (usually 2)
+
     enum HvdcEndType {
-        HVDC_TN_C1_LS1, HVDC_TN_C2_LS1, HVDC_TN_C1_LS2, HVDC_TN_CN_LSN,
+        HVDC_TN_C1_LS1, HVDC_TN_C2_LS1, HVDC_TN_CN_LS2N, HVDC_TN_CN_LSN
     }
 
     private final List<HvdcEnd> hvdc;
@@ -46,25 +43,24 @@ class IslandEndHvdc {
             return;
         }
         Set<String> visitedNodes = new HashSet<>();
+        Set<String> usedAcDcConverters = new HashSet<>();
 
         // islandNodesEnd can contain more than one hvdc configuration
         // Select the node with transformers where are more acDcConverters connected to
         Optional<String> nodeEndWithTransformers = nodeConnectedToTransformersWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes);
         while (nodeEndWithTransformers.isPresent()) {
-            add(adjacency, nodeEquipment, visitedNodes, nodeEndWithTransformers.get(), islandNodesEnd);
+            Set<String> acDcConverters = add(adjacency, nodeEquipment, visitedNodes, nodeEndWithTransformers.get(), islandNodesEnd);
+            usedAcDcConverters.addAll(acDcConverters);
             nodeEndWithTransformers = nodeConnectedToTransformersWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes);
         }
 
-        if (!visitedNodes.isEmpty()) {
-            return;
-        }
-
         // IslandsEnds without transformers
-        // Select the node where are more acDcConverters connected to
-        Optional<String> nodeEnd = nodeWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes);
+        // Select the node where are more acDcConverters connected to, avoiding used acDcConverters
+        Optional<String> nodeEnd = nodeWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes, usedAcDcConverters);
         while (nodeEnd.isPresent()) {
-            add(adjacency, nodeEquipment, visitedNodes, nodeEnd.get(), islandNodesEnd);
-            nodeEnd = nodeWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes);
+            Set<String> acDcConverters = add(adjacency, nodeEquipment, visitedNodes, nodeEnd.get(), islandNodesEnd);
+            usedAcDcConverters.addAll(acDcConverters);
+            nodeEnd = nodeWithMoreAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes, usedAcDcConverters);
         }
     }
 
@@ -75,8 +71,8 @@ class IslandEndHvdc {
     }
 
     private static Optional<String> nodeWithMoreAcDcConvertersConnectedTo(NodeEquipment nodeEquipment,
-        List<String> islandNodesEnd, Set<String> visitedNodes) {
-        return notVisitedNodesSortedByAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes).stream().findFirst();
+        List<String> islandNodesEnd, Set<String> visitedNodes, Set<String> usedAcDcConverters) {
+        return notVisitedNodesSortedByNotUsedAcDcConvertersConnectedTo(nodeEquipment, islandNodesEnd, visitedNodes, usedAcDcConverters).stream().findFirst();
     }
 
     // Not visited nodes connected to acDcConverters sorted by number of acDcConverters connected to
@@ -88,7 +84,13 @@ class IslandEndHvdc {
             .collect(Collectors.toList());
     }
 
-    private void add(Adjacency adjacency, NodeEquipment nodeEquipment, Set<String> visitedNodes, String nodeEnd,
+    private static List<String> notVisitedNodesSortedByNotUsedAcDcConvertersConnectedTo(NodeEquipment nodeEquipment, List<String> islandNodesEnd, Set<String> visitedNodes, Set<String> usedAcDcConverters) {
+        return islandNodesEnd.stream().filter(nodeEnd -> !visitedNodes.contains(nodeEnd) && nodeEquipment.containsAnyNotUsedAcDcConverter(nodeEnd, usedAcDcConverters))
+                .sorted(Comparator.<String>comparingInt(nodeEquipment::acDcConvertersConnectedTo).reversed().thenComparing(nodeEnd -> nodeEnd))
+                .collect(Collectors.toList());
+    }
+
+    private Set<String> add(Adjacency adjacency, NodeEquipment nodeEquipment, Set<String> visitedNodes, String nodeEnd,
         List<String> islandNodesEnd) {
 
         List<String> hvdcNodes = computeHvdcNodes(adjacency, nodeEquipment, nodeEnd, islandNodesEnd);
@@ -103,6 +105,8 @@ class IslandEndHvdc {
 
         HvdcEnd hvdcEnd = new HvdcEnd(hvdcNodes, transformers, acDcConverters, dcLineSegment);
         hvdc.add(hvdcEnd);
+
+        return acDcConverters;
     }
 
     private static List<String> computeHvdcNodes(Adjacency adjacency, NodeEquipment nodeEquipment,
@@ -186,13 +190,13 @@ class IslandEndHvdc {
             int c = this.acDcConvertersEnd.size();
             int ls = this.dcLineSegmentsEnd.size();
 
-            if (t >= 0 && c == 1 && ls == 1) {
+            if (c == 1 && ls == 1) {
                 return HvdcEndType.HVDC_TN_C1_LS1;
-            } else if (t >= 0 && c == 1 && ls == 2) {
-                return HvdcEndType.HVDC_TN_C1_LS2;
-            } else if (t >= 0 && c == 2 && ls == 1) {
+            } else if (c >= 1 && ls == 2 * c) {
+                return HvdcEndType.HVDC_TN_CN_LS2N;
+            } else if (c == 2 && ls == 1) {
                 return HvdcEndType.HVDC_TN_C2_LS1;
-            } else if (t >= 0 && c == ls && c > 1) {
+            } else if (c == ls && c > 1) {
                 return HvdcEndType.HVDC_TN_CN_LSN;
             }
 
@@ -207,8 +211,7 @@ class IslandEndHvdc {
                 return false;
             }
 
-            return this.dcLineSegmentsEnd.stream()
-                .allMatch(otherHvdcEnd.dcLineSegmentsEnd::contains);
+            return otherHvdcEnd.dcLineSegmentsEnd.containsAll(this.dcLineSegmentsEnd);
         }
 
         boolean isAssociatedWith(HvdcEnd otherHvdcEnd) {
@@ -219,7 +222,7 @@ class IslandEndHvdc {
 
             HvdcEnd finalHvdcEnd = new HvdcEnd(new ArrayList<>(), new HashSet<>(), new HashSet<>(), new HashSet<>());
 
-            listHvdcEnd.stream().forEach(hvdcEnd -> {
+            listHvdcEnd.forEach(hvdcEnd -> {
                 finalHvdcEnd.nodesEnd.addAll(hvdcEnd.nodesEnd);
                 finalHvdcEnd.transformersEnd.addAll(hvdcEnd.transformersEnd);
                 finalHvdcEnd.acDcConvertersEnd.addAll(hvdcEnd.acDcConvertersEnd);

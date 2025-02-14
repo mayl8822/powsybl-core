@@ -3,23 +3,24 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ampl.converter;
 
 import com.powsybl.ampl.converter.AmplExportConfig.ExportActionType;
 import com.powsybl.ampl.converter.AmplExportConfig.ExportScope;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class AmplExportConfigTest {
+class AmplExportConfigTest {
 
     @Test
-    public void test() {
+    void test() {
         AmplExportConfig config = new AmplExportConfig(ExportScope.ALL, true, ExportActionType.CURATIVE);
 
         assertEquals(ExportScope.ALL, config.getExportScope());

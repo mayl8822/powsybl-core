@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.powerfactory.model;
 
@@ -22,7 +23,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class DataObject {
 
@@ -371,32 +372,8 @@ public class DataObject {
         return this;
     }
 
-    // from json, recorded as a RealMatrix
-    // from dgs, recorded as a flat list
     public Optional<RealMatrix> findDoubleMatrixAttributeValue(String name) {
-        Optional<RealMatrix> realMatrix = findGenericAttributeValue(name, DataAttributeType.DOUBLE_MATRIX);
-        return realMatrix.isPresent() ? realMatrix : findAndParseDoubleMatrixAttributeValueFromFlatFormat(name);
-    }
-
-    private Optional<RealMatrix> findAndParseDoubleMatrixAttributeValueFromFlatFormat(String name) {
-        OptionalInt opRows = findIntAttributeValue(name + ":SIZEROW");
-        OptionalInt opCols = findIntAttributeValue(name + ":SIZECOL");
-        int rows = opRows.isPresent() ? opRows.getAsInt() : 0;
-        int cols = opCols.isPresent() ? opCols.getAsInt() : 0;
-
-        if (rows <= 0 || cols <= 0) {
-            return Optional.empty();
-        }
-
-        RealMatrix realMatrix = new BlockRealMatrix(rows, cols);
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                double value = getFloatAttributeValue(name + ":" + i + ":" + j);
-                realMatrix.setEntry(i, j, value);
-            }
-        }
-
-        return Optional.of(realMatrix);
+        return findGenericAttributeValue(name, DataAttributeType.DOUBLE_MATRIX);
     }
 
     public RealMatrix getDoubleMatrixAttributeValue(String name) {
@@ -601,23 +578,23 @@ public class DataObject {
     }
 
     private static boolean writeValue(JsonGenerator generator, Object value) throws IOException {
-        if (value instanceof String) {
-            generator.writeString((String) value);
+        if (value instanceof String stringValue) {
+            generator.writeString(stringValue);
             return true;
-        } else if (value instanceof Integer) {
-            generator.writeNumber((Integer) value);
+        } else if (value instanceof Integer integerValue) {
+            generator.writeNumber(integerValue);
             return true;
-        } else if (value instanceof Long) {
-            generator.writeNumber((Long) value);
+        } else if (value instanceof Long longValue) {
+            generator.writeNumber(longValue);
             return true;
-        } else if (value instanceof Float) {
-            generator.writeNumber((Float) value);
+        } else if (value instanceof Float floatValue) {
+            generator.writeNumber(floatValue);
             return true;
-        } else if (value instanceof Double) {
-            generator.writeNumber((Double) value);
+        } else if (value instanceof Double doubleValue) {
+            generator.writeNumber(doubleValue);
             return true;
-        } else if (value instanceof DataObjectRef) {
-            generator.writeNumber(((DataObjectRef) value).getId());
+        } else if (value instanceof DataObjectRef dataObjectRef) {
+            generator.writeNumber(dataObjectRef.getId());
             return true;
         }
         return false;

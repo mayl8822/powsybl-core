@@ -3,20 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public abstract class AbstractDanglingLineTest {
 
@@ -30,13 +29,10 @@ public abstract class AbstractDanglingLineTest {
 
     private static final String BUS_VL_ID = "bus_vl";
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     private Network network;
     private VoltageLevel voltageLevel;
 
-    @Before
+    @BeforeEach
     public void initNetwork() {
         network = Network.create("test", "test");
         Substation substation = network.newSubstation()
@@ -68,7 +64,8 @@ public abstract class AbstractDanglingLineTest {
         double q0 = 60.0;
         String id = "danglingId";
         String name = "danlingName";
-        String ucteXnodeCode = "code";
+        String pairingKey = "code";
+        String newPairingKey = "new_code";
         voltageLevel.newDanglingLine()
                         .setId(id)
                         .setName(name)
@@ -78,7 +75,7 @@ public abstract class AbstractDanglingLineTest {
                         .setB(b)
                         .setP0(p0)
                         .setQ0(q0)
-                        .setUcteXnodeCode(ucteXnodeCode)
+                        .setPairingKey(pairingKey)
                         .setBus(BUS_VL_ID)
                         .setConnectableBus(BUS_VL_ID)
                     .add();
@@ -94,7 +91,7 @@ public abstract class AbstractDanglingLineTest {
         assertEquals(id, danglingLine.getId());
         assertEquals(name, danglingLine.getOptionalName().orElse(null));
         assertEquals(name, danglingLine.getNameOrId());
-        assertEquals(ucteXnodeCode, danglingLine.getUcteXnodeCode());
+        assertEquals(pairingKey, danglingLine.getPairingKey());
         assertNull(danglingLine.getGeneration());
 
         // setter getter
@@ -116,23 +113,23 @@ public abstract class AbstractDanglingLineTest {
         assertEquals(p02, danglingLine.getP0(), 0.0);
         danglingLine.setQ0(q02);
         assertEquals(q02, danglingLine.getQ0(), 0.0);
+        danglingLine.setPairingKey(newPairingKey);
+        assertEquals(newPairingKey, danglingLine.getPairingKey());
 
         danglingLine.newCurrentLimits()
                 .setPermanentLimit(100.0)
                 .add();
-        assertEquals(100.0, danglingLine.getCurrentLimits().getPermanentLimit(), 0.0);
+        assertEquals(100.0, danglingLine.getCurrentLimits().map(LoadingLimits::getPermanentLimit).orElse(0.0), 0.0);
 
         danglingLine.newActivePowerLimits()
                 .setPermanentLimit(60.0)
                 .add();
-        assertEquals(60.0, danglingLine.getActivePowerLimits().getPermanentLimit(), 0.0);
+        assertEquals(60.0, danglingLine.getActivePowerLimits().map(LoadingLimits::getPermanentLimit).orElse(0.0), 0.0);
 
         danglingLine.newApparentPowerLimits()
                 .setPermanentLimit(132.0)
                 .add();
-        assertEquals(132.0, danglingLine.getApparentPowerLimits().getPermanentLimit(), 0.0);
-
-        assertEquals(3, danglingLine.getOperationalLimits().size());
+        assertEquals(132.0, danglingLine.getApparentPowerLimits().map(LoadingLimits::getPermanentLimit).orElse(0.0), 0.0);
 
         Bus bus = voltageLevel.getBusBreakerView().getBus(BUS_VL_ID);
         Bus terminal = danglingLine.getTerminal().getBusBreakerView().getBus();
@@ -140,53 +137,65 @@ public abstract class AbstractDanglingLineTest {
     }
 
     @Test
+    public void testDefaultValuesDanglingLine() {
+        voltageLevel.newDanglingLine()
+                .setId("danglingId")
+                .setName("DanglingName")
+                .setR(10.0)
+                .setX(20.0)
+                .setP0(30.0)
+                .setQ0(40.0)
+                .setPairingKey("code")
+                .setBus(BUS_VL_ID)
+                .add();
+
+        DanglingLine danglingLine = network.getDanglingLine("danglingId");
+        assertEquals(0.0, danglingLine.getG(), 0.0);
+        assertEquals(0.0, danglingLine.getB(), 0.0);
+    }
+
+    @Test
     public void testInvalidR() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("r is invalid");
-        createDanglingLine(INVALID, INVALID, Double.NaN, 1.0, 1.0, 1.0, 1.0, 1.0, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, Double.NaN, 1.0, 1.0, 1.0, 1.0, 1.0, "code"));
+        assertTrue(e.getMessage().contains("r is invalid"));
     }
 
     @Test
     public void testInvalidX() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("x is invalid");
-        createDanglingLine(INVALID, INVALID, 1.0, Double.NaN, 1.0, 1.0, 1.0, 1.0, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, 1.0, Double.NaN, 1.0, 1.0, 1.0, 1.0, "code"));
+        assertTrue(e.getMessage().contains("x is invalid"));
     }
 
     @Test
     public void testInvalidG() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("g is invalid");
-        createDanglingLine(INVALID, INVALID, 1.0, 1.0, Double.NaN, 1.0, 1.0, 1.0, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, 1.0, 1.0, Double.NaN, 1.0, 1.0, 1.0, "code"));
+        assertTrue(e.getMessage().contains("g is invalid"));
     }
 
     @Test
     public void testInvalidB() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("b is invalid");
-        createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, Double.NaN, 1.0, 1.0, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, Double.NaN, 1.0, 1.0, "code"));
+        assertTrue(e.getMessage().contains("b is invalid"));
+
     }
 
     @Test
     public void testInvalidP0() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("p0 is invalid");
-        createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, 1.0, Double.NaN, 1.0, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, 1.0, Double.NaN, 1.0, "code"));
+        assertTrue(e.getMessage().contains("p0 is invalid"));
     }
 
     @Test
     public void testInvalidQ0() {
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("q0 is invalid");
-        createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, 1.0, 1.0, Double.NaN, "code");
+        ValidationException e = assertThrows(ValidationException.class, () -> createDanglingLine(INVALID, INVALID, 1.0, 1.0, 1.0, 1.0, 1.0, Double.NaN, "code"));
+        assertTrue(e.getMessage().contains("q0 is invalid"));
     }
 
     @Test
     public void duplicateDanglingLine() {
         createDanglingLine(DUPLICATE, DUPLICATE, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, "code");
         assertNotNull(network.getDanglingLine(DUPLICATE));
-        thrown.expect(PowsyblException.class);
-        createDanglingLine(DUPLICATE, DUPLICATE, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, "code");
+        PowsyblException e = assertThrows(PowsyblException.class, () -> createDanglingLine(DUPLICATE, DUPLICATE, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, "code"));
     }
 
     @Test
@@ -251,7 +260,7 @@ public abstract class AbstractDanglingLineTest {
         double q0 = 0.0;
         String id = "danglingId";
         String name = "danlingName";
-        String ucteXnodeCode = "code";
+        String pairingKey = "code";
         DanglingLineAdder adder = voltageLevel.newDanglingLine()
                 .setId(id)
                 .setName(name)
@@ -261,7 +270,7 @@ public abstract class AbstractDanglingLineTest {
                 .setB(b)
                 .setP0(p0)
                 .setQ0(q0)
-                .setUcteXnodeCode(ucteXnodeCode)
+                .setPairingKey(pairingKey)
                 .setBus(BUS_VL_ID)
                 .setConnectableBus(BUS_VL_ID)
                 .newGeneration()
@@ -285,7 +294,7 @@ public abstract class AbstractDanglingLineTest {
                 .setMinQ(-500)
                 .add();
         assertNotNull(generation.getReactiveLimits());
-        assertTrue(generation.getReactiveLimits() instanceof MinMaxReactiveLimits);
+        assertInstanceOf(MinMaxReactiveLimits.class, generation.getReactiveLimits());
 
         // Test if new Generation is instantiate at each add
         DanglingLine dl2 = adder.setId(id + "_2").add();
@@ -303,7 +312,7 @@ public abstract class AbstractDanglingLineTest {
                         .setB(b)
                         .setP0(p0)
                         .setQ0(q0)
-                        .setUcteXnodeCode(ucteCode)
+                        .setPairingKey(ucteCode)
                         .setBus(BUS_VL_ID)
                         .setConnectableBus(BUS_VL_ID)
                     .add();

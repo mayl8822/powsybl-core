@@ -3,20 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class UcteElementStatusTest {
+class UcteElementStatusTest {
 
     @Test
-    public void test() {
+    void test() {
         int[] status = {0, 8, 1, 9, 2, 7};
 
         assertEquals(6, UcteElementStatus.values().length);
@@ -27,8 +29,8 @@ public class UcteElementStatusTest {
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void unknownElementStatus() {
-        UcteElementStatus.fromCode(10);
+    @Test
+    void unknownElementStatus() {
+        assertThrows(IllegalArgumentException.class, () -> UcteElementStatus.fromCode(10));
     }
 }

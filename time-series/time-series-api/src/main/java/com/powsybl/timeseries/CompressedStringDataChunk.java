@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.timeseries;
 
@@ -17,7 +18,7 @@ import java.util.stream.StreamSupport;
 /**
  * RLE (Run-Length encoding) compressed string data chunk.
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class CompressedStringDataChunk extends AbstractCompressedDataChunk implements StringDataChunk {
 
@@ -114,7 +115,7 @@ public class CompressedStringDataChunk extends AbstractCompressedDataChunk imple
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                StringPoint point = new StringPoint(i, index.getTimeAt(i), stepValues[step]);
+                StringPoint point = new StringPoint(i, index.getInstantAt(i), stepValues[step]);
                 i += stepLengths[step];
                 step++;
                 return point;
@@ -164,7 +165,7 @@ public class CompressedStringDataChunk extends AbstractCompressedDataChunk imple
             }
             index += stepLengths[step];
         }
-        throw new AssertionError("Should not happen");
+        throw new IllegalStateException("Should not happen");
     }
 
     @Override
@@ -231,8 +232,7 @@ public class CompressedStringDataChunk extends AbstractCompressedDataChunk imple
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof CompressedStringDataChunk) {
-            CompressedStringDataChunk other = (CompressedStringDataChunk) obj;
+        if (obj instanceof CompressedStringDataChunk other) {
             return offset == other.offset &&
                     uncompressedLength == other.uncompressedLength &&
                     Arrays.equals(stepLengths, other.stepLengths) &&

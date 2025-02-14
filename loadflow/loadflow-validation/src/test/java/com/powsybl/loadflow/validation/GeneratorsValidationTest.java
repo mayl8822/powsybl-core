@@ -3,18 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.output.NullWriter;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.powsybl.iidm.network.Bus;
@@ -27,9 +28,9 @@ import com.powsybl.loadflow.validation.io.ValidationWriter;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public class GeneratorsValidationTest extends AbstractValidationTest {
+class GeneratorsValidationTest extends AbstractValidationTest {
 
     private double p = -39.5056;
     private double q = 3.72344;
@@ -49,8 +50,8 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
     private Terminal genTerminal;
     private Generator generator;
 
-    @Before
-    public void setUp() throws IOException {
+    @BeforeEach
+    void setUp() throws IOException {
         super.setUp();
 
         Bus genBus = Mockito.mock(Bus.class);
@@ -70,7 +71,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
         Mockito.when(genReactiveLimits.getMinQ(Mockito.anyFloat())).thenReturn(minQ);
         Mockito.when(genReactiveLimits.getMaxQ(Mockito.anyFloat())).thenReturn(maxQ);
 
-        generator =  Mockito.mock(Generator.class);
+        generator = Mockito.mock(Generator.class);
         Mockito.when(generator.getId()).thenReturn("gen");
         Mockito.when(generator.getTerminal()).thenReturn(genTerminal);
         Mockito.when(generator.isVoltageRegulatorOn()).thenReturn(false);
@@ -83,7 +84,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
     }
 
     @Test
-    public void checkGeneratorsValues() {
+    void checkGeneratorsValues() {
         // active power should be equal to setpoint
         assertTrue(GeneratorsValidation.INSTANCE.checkGenerators("test", p, q, v, targetP, targetQ, targetV, voltageRegulatorOn, minP, maxP, minQ, maxQ, connected, mainComponent, strictConfig, NullWriter.NULL_WRITER));
         p = -39.8;
@@ -170,7 +171,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
     }
 
     @Test
-    public void checkGenerators() {
+    void checkGenerators() {
         // active power should be equal to setpoint
         assertTrue(GeneratorsValidation.INSTANCE.checkGenerators(generator, strictConfig, NullWriter.NULL_WRITER));
         Mockito.when(genTerminal.getP()).thenReturn(-39.8);
@@ -182,7 +183,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
     }
 
     @Test
-    public void checkNetworkGenerators() throws IOException {
+    void checkNetworkGenerators() throws IOException {
         Bus genBus1 = Mockito.mock(Bus.class);
         Mockito.when(genBus1.getV()).thenReturn(v);
         Mockito.when(genBus1.isInMainConnectedComponent()).thenReturn(mainComponent);
@@ -200,7 +201,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
         Mockito.when(genReactiveLimits1.getMinQ(Mockito.anyFloat())).thenReturn(minQ);
         Mockito.when(genReactiveLimits1.getMaxQ(Mockito.anyFloat())).thenReturn(maxQ);
 
-        Generator generator1 =  Mockito.mock(Generator.class);
+        Generator generator1 = Mockito.mock(Generator.class);
         Mockito.when(generator1.getId()).thenReturn("gen1");
         Mockito.when(generator1.getTerminal()).thenReturn(genTerminal1);
         Mockito.when(generator1.isVoltageRegulatorOn()).thenReturn(false);
@@ -242,7 +243,7 @@ public class GeneratorsValidationTest extends AbstractValidationTest {
         Mockito.when(genReactiveLimits2.getMinQ(Mockito.anyFloat())).thenReturn(minQ);
         Mockito.when(genReactiveLimits2.getMaxQ(Mockito.anyFloat())).thenReturn(maxQ);
 
-        Generator generator2 =  Mockito.mock(Generator.class);
+        Generator generator2 = Mockito.mock(Generator.class);
         Mockito.when(generator2.getId()).thenReturn("gen2");
         Mockito.when(generator2.getTerminal()).thenReturn(genTerminal2);
         Mockito.when(generator2.isVoltageRegulatorOn()).thenReturn(false);

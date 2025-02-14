@@ -3,12 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.config;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
@@ -19,19 +20,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class XmlPlatformConfigTest {
+class XmlPlatformConfigTest {
 
-    public XmlPlatformConfigTest() {
+    XmlPlatformConfigTest() {
     }
 
     @Test
-    public void properties2XmlConvertionTest() throws IOException, XMLStreamException {
+    void properties2XmlConvertionTest() throws IOException, XMLStreamException {
         try (FileSystem fileSystem = Jimfs.newFileSystem(Configuration.unix())) {
             Path cfgDir = Files.createDirectory(fileSystem.getPath("config"));
             Properties prop1 = new Properties();

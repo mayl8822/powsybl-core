@@ -3,17 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.conversion.export;
 
+import com.powsybl.cgmes.conversion.CgmesExport;
 import com.powsybl.cgmes.conversion.Conversion;
-import com.powsybl.cgmes.extensions.CgmesIidmMapping;
 import com.powsybl.cgmes.extensions.CgmesTapChanger;
 import com.powsybl.cgmes.extensions.CgmesTapChangers;
+import com.powsybl.cgmes.model.CgmesMetadataModel;
 import com.powsybl.cgmes.model.CgmesNames;
+import com.powsybl.cgmes.model.CgmesSubset;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.exceptions.UncheckedXmlStreamException;
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.extensions.ReferenceTerminals;
 import com.powsybl.iidm.network.extensions.SlackTerminal;
 import com.powsybl.iidm.network.util.SwitchesFlow;
 import org.slf4j.Logger;
@@ -24,11 +28,13 @@ import javax.xml.stream.XMLStreamWriter;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.powsybl.cgmes.conversion.naming.CgmesObjectReference.Part.TOPOLOGICAL_ISLAND;
+import static com.powsybl.cgmes.conversion.naming.CgmesObjectReference.ref;
+
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 public final class StateVariablesExport {
 
@@ -43,21 +49,25 @@ public final class StateVariablesExport {
     }
 
     public static void write(Network network, XMLStreamWriter writer, CgmesExportContext context) {
+        CgmesMetadataModel model = CgmesExport.initializeModelForExport(
+                network, CgmesSubset.STATE_VARIABLES, context, true, false);
+        write(network, writer, context, model);
+    }
+
+    public static void write(Network network, XMLStreamWriter writer, CgmesExportContext context, CgmesMetadataModel model) {
         try {
             String cimNamespace = context.getCim().getNamespace();
             CgmesExportUtil.writeRdfRoot(cimNamespace, context.getCim().getEuPrefix(), context.getCim().getEuNamespace(), writer);
 
             if (context.getCimVersion() >= 16) {
-                CgmesExportUtil.writeModelDescription(writer, context.getSvModelDescription(), context);
-                writeTopologicalIslands(network, cimNamespace, writer, context);
-                // Note: unmapped topological nodes (node breaker) & boundary topological nodes are not written in topological islands
+                CgmesExportUtil.writeModelDescription(network, CgmesSubset.STATE_VARIABLES, writer, model, context);
+                writeTopologicalIslands(network, context, writer);
+                // Note: unmapped topological nodes (node breaker) are not written in topological islands
             }
 
-            writeVoltagesForTopologicalNodes(network, cimNamespace, writer, context);
-            writeVoltagesForBoundaryNodes(network, cimNamespace, writer);
-            for (CgmesIidmMapping.CgmesTopologicalNode tn : context.getUnmappedTopologicalNodes()) {
-                writeVoltage(tn.getCgmesId(), 0.0, 0.0, cimNamespace, writer);
-            }
+            writeVoltagesForTopologicalNodes(network, context, writer);
+            writeVoltagesForBoundaryNodes(network, cimNamespace, writer, context);
+            writeSvInjectionsForSlacks(network, cimNamespace, writer, context);
             writePowerFlows(network, cimNamespace, writer, context);
             writeShuntCompensatorSections(network, cimNamespace, writer, context);
             writeTapSteps(network, cimNamespace, writer, context);
@@ -70,23 +80,26 @@ public final class StateVariablesExport {
         }
     }
 
-    private static void writeTopologicalIslands(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+    private static void writeTopologicalIslands(Network network, CgmesExportContext context, XMLStreamWriter writer) throws XMLStreamException {
         Map<String, String> angleRefs = buildAngleRefs(network, context);
-        Map<String, List<String>> islands = buildIslands(network, context);
-        for (Map.Entry<String, List<String>> island : islands.entrySet()) {
-            if (!angleRefs.containsKey(island.getKey())) {
-                Supplier<String> log = () -> String.format("Synchronous component  %s does not have a defined slack bus: it is ignored", island.getKey());
+        List<TopologicalIsland> islands = buildIslands(network, context);
+        String cimNamespace = context.getCim().getNamespace();
+        for (TopologicalIsland island : islands) {
+            if (!angleRefs.containsKey(island.key)) {
+                Supplier<String> log = () -> String.format("Synchronous component  %s does not have a defined angle reference bus: it is ignored", island.key);
                 LOG.info(log.get());
                 continue;
             }
-            String islandId = CgmesExportUtil.getUniqueId();
-            CgmesExportUtil.writeStartId(CgmesNames.TOPOLOGICAL_ISLAND, islandId, false, cimNamespace, writer);
-            writer.writeStartElement(cimNamespace, CgmesNames.NAME);
-            writer.writeCharacters(islandId); // Use id as name
-            writer.writeEndElement();
-            CgmesExportUtil.writeReference("TopologicalIsland.AngleRefTopologicalNode", angleRefs.get(island.getKey()), cimNamespace, writer);
-            for (String tn : island.getValue()) {
-                CgmesExportUtil.writeReference("TopologicalIsland.TopologicalNodes", tn, cimNamespace, writer);
+            String islandId = context.getNamingStrategy().getCgmesId(ref(island.key), TOPOLOGICAL_ISLAND);
+            CgmesExportUtil.writeStartIdName(CgmesNames.TOPOLOGICAL_ISLAND, islandId, islandId, cimNamespace, writer, context);
+            CgmesExportUtil.writeReference("TopologicalIsland.AngleRefTopologicalNode", angleRefs.get(island.key), cimNamespace, writer, context);
+            if (context.isExportLoadFlowStatus()) {
+                writer.writeStartElement(cimNamespace, CgmesNames.IDENTIFIED_OBJECT_DESCRIPTION);
+                writer.writeCharacters(island.loadFlowStatus);
+                writer.writeEndElement();
+            }
+            for (String tn : island.topologicalNodes) {
+                CgmesExportUtil.writeReference("TopologicalIsland.TopologicalNodes", tn, cimNamespace, writer, context);
             }
             writer.writeEndElement();
         }
@@ -94,28 +107,27 @@ public final class StateVariablesExport {
 
     private static Map<String, String> buildAngleRefs(Network network, CgmesExportContext context) {
         Map<String, String> angleRefs = new HashMap<>();
-        for (VoltageLevel vl : network.getVoltageLevels()) {
-            SlackTerminal slackTerminal = vl.getExtension(SlackTerminal.class);
-            buildAngleRefs(slackTerminal, angleRefs, context);
-        }
+        ReferenceTerminals.getTerminals(network).forEach(t -> buildAngleRefs(t, angleRefs, context));
         return angleRefs;
     }
 
-    private static void buildAngleRefs(SlackTerminal slackTerminal, Map<String, String> angleRefs, CgmesExportContext context) {
-        if (slackTerminal != null && slackTerminal.getTerminal() != null) {
-            Bus bus = slackTerminal.getTerminal().getBusView().getBus();
+    private static void buildAngleRefs(Terminal referenceTerminal, Map<String, String> angleRefs, CgmesExportContext context) {
+        if (referenceTerminal != null) {
+            Bus bus = referenceTerminal.getBusBreakerView().getBus();
             if (bus != null && bus.getSynchronousComponent() != null) {
-                buildAngleRefs(bus.getSynchronousComponent().getNum(), bus.getId(), angleRefs, context);
+                buildAngleRefs(bus.getSynchronousComponent().getNum(), bus, angleRefs, context);
             } else if (bus != null) {
-                buildAngleRefs(bus.getId(), angleRefs, context);
+                buildAngleRefs(bus, angleRefs, context);
             } else {
-                Supplier<String> message = () -> String.format("Slack terminal at equipment %s is not connected and is not exported as slack terminal", slackTerminal.getTerminal().getConnectable().getId());
+                Supplier<String> message = () -> String.format(
+                        "Reference terminal at equipment %s is not connected and is not used to export angle references",
+                        referenceTerminal.getConnectable().getId());
                 LOG.info(message.get());
             }
         }
     }
 
-    private static void buildAngleRefs(int synchronousComponentNum, String busId, Map<String, String> angleRefs, CgmesExportContext context) {
+    private static void buildAngleRefs(int synchronousComponentNum, Bus bus, Map<String, String> angleRefs, CgmesExportContext context) {
         String componentNum = String.valueOf(synchronousComponentNum);
         if (angleRefs.containsKey(componentNum)) {
             Supplier<String> log = () -> String.format("Several slack buses are defined for synchronous component %s: only first slack bus (%s) is taken into account",
@@ -123,85 +135,252 @@ public final class StateVariablesExport {
             LOG.info(log.get());
             return;
         }
-        CgmesIidmMapping.CgmesTopologicalNode topologicalNode = context.getTopologicalNodesByBusViewBus(busId).iterator().next();
-        angleRefs.put(componentNum, topologicalNode.getCgmesId());
+        String topologicalNodeId = context.getNamingStrategy().getCgmesId(bus);
+        angleRefs.put(componentNum, topologicalNodeId);
     }
 
-    private static void buildAngleRefs(String busId, Map<String, String> angleRefs, CgmesExportContext context) {
-        CgmesIidmMapping.CgmesTopologicalNode topologicalNode = context.getTopologicalNodesByBusViewBus(busId).iterator().next();
-        angleRefs.put(topologicalNode.getCgmesId(),
-                topologicalNode.getCgmesId());
+    private static void buildAngleRefs(Bus bus, Map<String, String> angleRefs, CgmesExportContext context) {
+        String topologicalNodeId = context.getNamingStrategy().getCgmesId(bus);
+        angleRefs.put(topologicalNodeId, topologicalNodeId);
     }
 
-    private static Map<String, List<String>> buildIslands(Network network, CgmesExportContext context) {
-        Map<String, List<String>> islands = new HashMap<>();
-        for (Bus b : network.getBusView().getBuses()) {
-            if (b.getSynchronousComponent() != null) {
-                int num = b.getSynchronousComponent().getNum();
-                islands.computeIfAbsent(String.valueOf(num), i -> new ArrayList<>());
-                islands.get(String.valueOf(num)).addAll(context.getTopologicalNodesByBusViewBus(b.getId()).stream().map(CgmesIidmMapping.CgmesTopologicalNode::getCgmesId).collect(Collectors.toSet()));
-            } else {
-                islands.put(b.getId(), Collections.singletonList(b.getId()));
-            }
+    private static final class BusTools {
+        private BusTools() {
+            // Empty
         }
-        return islands;
-    }
 
-    private static void writeVoltagesForTopologicalNodes(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
-        for (Bus b : network.getBusView().getBuses()) {
-            for (CgmesIidmMapping.CgmesTopologicalNode topologicalNode : context.getTopologicalNodesByBusViewBus(b.getId())) {
-                writeVoltage(topologicalNode.getCgmesId(), b.getV(), b.getAngle(), cimNamespace, writer);
-            }
-        }
-    }
-
-    private static void writeVoltagesForBoundaryNodes(Network network, String cimNamespace, XMLStreamWriter writer) throws XMLStreamException {
-        for (DanglingLine dl : network.getDanglingLines()) {
-            Bus b = dl.getTerminal().getBusView().getBus();
-            Optional<String> topologicalNode = dl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TOPOLOGICAL_NODE);
-            if (topologicalNode.isPresent()) {
-                if (dl.hasProperty("v") && dl.hasProperty("angle")) {
-                    writeVoltage(topologicalNode.get(), Double.valueOf(dl.getProperty("v", "NaN")), Double.valueOf(dl.getProperty("angle", "NaN")), cimNamespace, writer);
-                } else if (b != null) {
-                    writeVoltage(topologicalNode.get(), dl.getBoundary().getV(), dl.getBoundary().getAngle(), cimNamespace, writer);
+        static Optional<Bus> getBusViewBus(Bus bus) {
+            if (bus != null) {
+                if (bus.getVoltageLevel().getTopologyKind().equals(TopologyKind.BUS_BREAKER)) {
+                    return Optional.of(bus.getVoltageLevel().getBusView().getMergedBus(bus.getId()));
                 } else {
-                    writeVoltage(topologicalNode.get(), 0.0, 0.0, cimNamespace, writer);
+                    if (bus.getConnectedTerminalCount() > 0) {
+                        return bus.getConnectedTerminalStream().map(t -> t.getBusView().getBus()).filter(Objects::nonNull).findFirst();
+                    } else {
+                        return bus.getVoltageLevel().getBusView().getBusStream()
+                                .filter(busViewBus -> bus.getVoltageLevel().getBusBreakerView().getBusesFromBusViewBusId(busViewBus.getId()).contains(bus))
+                                .findFirst();
+                    }
+                }
+            } else {
+                return Optional.empty();
+            }
+        }
+
+        static boolean hasAnyFinite(Bus bus, Function<Terminal, Double> value) {
+            return bus.getConnectedTerminalStream().map(value).anyMatch(Double::isFinite);
+        }
+
+        static double sum(Bus bus, Function<Terminal, Double> value) {
+            return bus.getConnectedTerminalStream()
+                    .map(value)
+                    .filter(pq -> !Double.isNaN(pq))
+                    .mapToDouble(Double::valueOf)
+                    .sum();
+        }
+
+        static boolean isSlack(Bus bus) {
+            SlackTerminal st = bus.getVoltageLevel().getExtension(SlackTerminal.class);
+            return st != null && st.getTerminal() != null && st.getTerminal().getBusView().getBus() == bus;
+        }
+
+        static void logDetail(Bus bus) {
+            if (LOG.isDebugEnabled()) {
+                bus.getConnectedTerminalStream().forEach(t -> LOG.debug(String.format("  %7.2f  %7.2f  %s %s %s",
+                        t.getP(), t.getQ(),
+                        t.getConnectable().getType(), t.getConnectable().getNameOrId(), t.getConnectable().getId())));
+            }
+        }
+    }
+
+    private static final class TopologicalIsland {
+        static final String CONVERGED = "converged";
+        static final String DIVERGED = "diverged";
+
+        // The key can be a synchronous component number or a topological node identifier
+        final String key;
+        final List<String> topologicalNodes;
+        // We need to export the load flow status for the island,
+        // from QoCDC 3.3.1 rule TIConvergenceStatMissing:
+        //      The cim:IdentifiedObject.description of cim:TopologicalIsland shall have one the
+        //      following string values: “converged” and “diverged” which represents the
+        //      convergence status of the cim:TopologicalIsland.
+        // Consider the island is converged unless we add a non-converged bus
+        String loadFlowStatus = CONVERGED;
+        final double maxPMismatchConverged;
+        final double maxQMismatchConverged;
+        final Map<Bus, Boolean> checkedBusViewBuses = new HashMap<>();
+        final boolean checkConvergedInAllBuses;
+
+        private TopologicalIsland(String key, List<String> topologicalNodes, CgmesExportContext context) {
+            this.key = key;
+            this.checkConvergedInAllBuses = false;
+            this.topologicalNodes = topologicalNodes;
+            this.maxPMismatchConverged = context.getMaxPMismatchConverged();
+            this.maxQMismatchConverged = context.getMaxQMismatchConverged();
+        }
+
+        static TopologicalIsland fromSynchronousComponent(String key, CgmesExportContext context) {
+            return new TopologicalIsland(key, new ArrayList<>(), context);
+        }
+
+        static TopologicalIsland fromTopologicalNodes(List<String> topologicalNodes, CgmesExportContext context) {
+            return new TopologicalIsland(topologicalNodes.get(0), topologicalNodes, context);
+        }
+
+        void addNode(String topologicalNode, Bus bus, boolean updateLoadFlowStatus) {
+            topologicalNodes.add(topologicalNode);
+            if (updateLoadFlowStatus) {
+                updateLoadFlowStatus(bus);
+            }
+        }
+
+        void updateLoadFlowStatus(Bus bus) {
+            if (loadFlowStatus.equals(DIVERGED) && !checkConvergedInAllBuses) {
+                return;
+            }
+            if (!(isValidVoltage(bus.getV()) && isValidAngle(bus.getAngle()) && isInAccordanceWithKirchhoffsFirstLaw(bus))) {
+                loadFlowStatus = DIVERGED;
+            }
+        }
+
+        boolean isValidVoltage(double v) {
+            return v >= 0.01;
+        }
+
+        boolean isValidAngle(double a) {
+            return Double.isFinite(a);
+        }
+
+        boolean isInAccordanceWithKirchhoffsFirstLaw(Bus bus) {
+            // Instead of checking switch flows, we check that the corresponding bus view bus is balanced
+            Optional<Bus> optionalBusViewBus = BusTools.getBusViewBus(bus);
+            if (optionalBusViewBus.isEmpty()) {
+                LOG.error("Can not check if bus is in accordance with Kirchhoff's first law. No BusView bus can be found for: {}", bus);
+                return false;
+            }
+            Bus busViewBus = optionalBusViewBus.get();
+            if (busViewBus.getConnectedTerminalCount() == 0
+                    || BusTools.isSlack(busViewBus)) {
+                return true;
+            }
+            // We do not check the same bus view bus more than once
+            if (checkedBusViewBuses.containsKey(busViewBus)) {
+                return checkedBusViewBuses.get(busViewBus);
+            }
+
+            boolean isInAccordance;
+            if (BusTools.hasAnyFinite(busViewBus, Terminal::getP) && BusTools.hasAnyFinite(busViewBus, Terminal::getQ)) {
+                double sumP = BusTools.sum(busViewBus, Terminal::getP);
+                double sumQ = BusTools.sum(busViewBus, Terminal::getQ);
+                isInAccordance = Math.abs(sumP) <= maxPMismatchConverged && Math.abs(sumQ) <= maxQMismatchConverged;
+                if (!isInAccordance && LOG.isInfoEnabled()) {
+                    LOG.info("Bus {} is not in accordance with Kirchhoff's first law. Mismatch = {}", bus, String.format("(%.4f, %.4f)", sumP, sumQ));
+                    BusTools.logDetail(busViewBus);
+                    LOG.debug(String.format("  %7.2f  %7.2f  Sum", sumP, sumQ));
+                }
+            } else {
+                isInAccordance = false;
+                LOG.info("Bus {} is not in accordance with Kirchhoff's first law. All connected terminals have invalid values", bus);
+                BusTools.logDetail(busViewBus);
+            }
+            checkedBusViewBuses.put(busViewBus, isInAccordance);
+            return isInAccordance;
+        }
+    }
+
+    private static List<TopologicalIsland> buildIslands(Network network, CgmesExportContext context) {
+        Map<String, TopologicalIsland> islands = new HashMap<>();
+        for (Bus b : network.getBusBreakerView().getBuses()) {
+            // Adds the topological node of the bus and of any dangling line connected to this bus (QoCDC 4.0)
+            List<String> topologicalNodeIds = new ArrayList<>();
+            String busTnId = context.getNamingStrategy().getCgmesId(b);
+            topologicalNodeIds.add(busTnId);
+            b.getDanglingLines().forEach(dl -> topologicalNodeIds.add(dl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TOPOLOGICAL_NODE_BOUNDARY)));
+            if (b.getSynchronousComponent() != null) {
+                String key = String.valueOf(b.getSynchronousComponent().getNum());
+                TopologicalIsland island = islands.computeIfAbsent(key, k -> TopologicalIsland.fromSynchronousComponent(k, context));
+                for (String topologicalNodeId : topologicalNodeIds) {
+                    island.addNode(topologicalNodeId, b, context.isExportLoadFlowStatus());
+                }
+            } else {
+                islands.put(busTnId, TopologicalIsland.fromTopologicalNodes(topologicalNodeIds, context));
+            }
+        }
+        return islands.values().stream().toList();
+    }
+
+    private static void writeVoltagesForTopologicalNodes(Network network, CgmesExportContext context, XMLStreamWriter writer) throws XMLStreamException {
+        String cimNamespace = context.getCim().getNamespace();
+        for (Map.Entry<String, Bus> e : context.getTopologicalNodes(network).entrySet()) {
+            writeVoltage(e.getKey(), e.getValue() != null ? e.getValue().getV() : 0.0, e.getValue() != null ? e.getValue().getAngle() : 0.0, cimNamespace, writer, context);
+        }
+    }
+
+    private static void writeVoltagesForBoundaryNodes(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+        for (DanglingLine dl : network.getDanglingLines(DanglingLineFilter.ALL)) {
+            Bus b = dl.getTerminal().getBusView().getBus();
+            String topologicalNode = dl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TOPOLOGICAL_NODE_BOUNDARY);
+            if (topologicalNode != null) {
+                if (dl.hasProperty("v") && dl.hasProperty("angle")) {
+                    writeVoltage(topologicalNode, Double.parseDouble(dl.getProperty("v", "NaN")), Double.parseDouble(dl.getProperty("angle", "NaN")), cimNamespace, writer, context);
+                } else if (b != null) {
+                    writeVoltage(topologicalNode, dl.getBoundary().getV(), dl.getBoundary().getAngle(), cimNamespace, writer, context);
+                } else {
+                    writeVoltage(topologicalNode, 0.0, 0.0, cimNamespace, writer, context);
                 }
             }
         }
-        // Voltages at inner nodes of Tie Lines
-        // (boundary nodes that have been left inside CGM)
-        for (Line l : network.getLines()) {
-            if (!l.isTieLine()) {
-                continue;
-            }
-            TieLine tieLine = (TieLine) l;
-            String topologicalNode = tieLine.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TOPOLOGICAL_NODE)
-                    .orElseGet(() -> tieLine.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + tieLine.getHalf1().getId() + "." + CgmesNames.TOPOLOGICAL_NODE));
-            if (topologicalNode != null) {
-                writeVoltage(topologicalNode, tieLine.getHalf1().getBoundary().getV(), tieLine.getHalf1().getBoundary().getAngle(), cimNamespace, writer);
-            }
-        }
     }
 
-    private static void writeVoltage(String topologicalNode, double v, double angle, String cimNamespace, XMLStreamWriter writer) throws XMLStreamException {
-        CgmesExportUtil.writeStartId("SvVoltage", CgmesExportUtil.getUniqueId(), false, cimNamespace, writer);
+    private static void writeVoltage(String topologicalNode, double v, double angle, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+        CgmesExportUtil.writeStartId("SvVoltage", CgmesExportUtil.getUniqueRandomId(), false, cimNamespace, writer, context);
         writer.writeStartElement(cimNamespace, SV_VOLTAGE_ANGLE);
         writer.writeCharacters(CgmesExportUtil.format(angle));
         writer.writeEndElement();
         writer.writeStartElement(cimNamespace, SV_VOLTAGE_V);
         writer.writeCharacters(CgmesExportUtil.format(v));
         writer.writeEndElement();
-        CgmesExportUtil.writeReference(SV_VOLTAGE_TOPOLOGICAL_NODE, topologicalNode, cimNamespace, writer);
+        CgmesExportUtil.writeReference(SV_VOLTAGE_TOPOLOGICAL_NODE, topologicalNode, cimNamespace, writer, context);
         writer.writeEndElement();
+    }
+
+    private static void writeSvInjectionsForSlacks(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        if (context.isExportSvInjectionsForSlacks()) {
+            for (VoltageLevel vl : network.getVoltageLevels()) {
+                SlackTerminal st = vl.getExtension(SlackTerminal.class);
+                if (st != null && st.getTerminal() != null) {
+                    Bus bus = st.getTerminal().getBusBreakerView().getBus();
+                    Optional<Bus> optionalBusViewBus = BusTools.getBusViewBus(bus);
+                    if (optionalBusViewBus.isPresent()) {
+                        // The total mismatch of the slack (as busview bus) has been left in the bus/breaker bus labeled as slack.
+                        // This is ensured by the calculation of flows through switches (SwitchesFlow).
+                        // We compute the total mismatch left by power flow calculation in the busview bus and
+                        // create an SvInjection that is assigned to the bus/breaker view bus.
+                        Bus busViewBus = optionalBusViewBus.get();
+                        computeMismatchAndWriteSvInjection(bus, busViewBus, cimNamespace, writer, context);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void computeMismatchAndWriteSvInjection(Bus bus, Bus busViewBus, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        double sumP = BusTools.sum(busViewBus, Terminal::getP);
+        double sumQ = BusTools.sum(busViewBus, Terminal::getQ);
+        if (Math.abs(sumP) > context.getMaxPMismatchConverged() || Math.abs(sumQ) > context.getMaxQMismatchConverged()) {
+            String topologicalNodeId = context.getNamingStrategy().getCgmesId(bus);
+            String svInjectionId = CgmesExportUtil.getUniqueRandomId();
+            writeSvInjection(svInjectionId, -sumP, -sumQ, topologicalNodeId, cimNamespace, writer, context);
+        }
     }
 
     private static void writePowerFlows(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
         writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getLoadStream);
         writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getGeneratorStream);
+        writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getBatteryStream);
         writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getShuntCompensatorStream);
         writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getStaticVarCompensatorStream);
-        writeInjectionsPowerFlows(network, cimNamespace, writer, context, Network::getBatteryStream);
 
         // Fictitious loads are not exported as Equipment, they are just added to SV as SvInjection
         for (Load load : network.getLoads()) {
@@ -210,99 +389,66 @@ public final class StateVariablesExport {
             }
         }
 
-        network.getDanglingLineStream().forEach(dl -> {
-            // FIXME: the values (p0/q0) are wrong: these values are target and never updated, not calculated flows
+        Map<String, Double> equivalentInjectionTerminalP = new HashMap<>();
+        Map<String, Double> equivalentInjectionTerminalQ = new HashMap<>();
+        network.getDanglingLines(DanglingLineFilter.ALL).forEach(dl -> {
             // DanglingLine's attributes will be created to store calculated flows on the boundary side
             if (context.exportBoundaryPowerFlows()) {
-                dl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "Terminal_Boundary")
-                        .ifPresent(terminal -> writePowerFlow(terminal, dl.getBoundary().getP(), dl.getBoundary().getQ(), cimNamespace, writer));
+                writePowerFlowTerminalFromAlias(dl, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "Terminal_Boundary", dl.getBoundary().getP(), dl.getBoundary().getQ(), cimNamespace, writer, context);
             }
-            dl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "Terminal_Network")
-                            .ifPresent(terminal -> writePowerFlow(terminal, dl.getTerminal().getP(), dl.getTerminal().getQ(), cimNamespace, writer));
-            dl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "EquivalentInjectionTerminal")
-                    .ifPresent(eit -> writePowerFlow(eit, -dl.getBoundary().getP(), -dl.getBoundary().getQ(), cimNamespace, writer));
+            writePowerFlowTerminalFromAlias(dl, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1, dl.getTerminal().getP(), dl.getTerminal().getQ(), cimNamespace, writer, context);
+            context.getNamingStrategy().getCgmesIdFromProperty(dl, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.EQUIVALENT_INJECTION_TERMINAL);
+            equivalentInjectionTerminalP.compute(context.getNamingStrategy().getCgmesIdFromProperty(dl, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.EQUIVALENT_INJECTION_TERMINAL), (k, v) -> v == null ? -dl.getBoundary().getP() : v - dl.getBoundary().getP());
+            equivalentInjectionTerminalQ.compute(context.getNamingStrategy().getCgmesIdFromProperty(dl, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.EQUIVALENT_INJECTION_TERMINAL), (k, v) -> v == null ? -dl.getBoundary().getQ() : v - dl.getBoundary().getQ());
         });
+        equivalentInjectionTerminalP.keySet().forEach(eiId -> writePowerFlow(eiId, equivalentInjectionTerminalP.get(eiId), equivalentInjectionTerminalQ.get(eiId), cimNamespace, writer, context));
 
-        network.getBranchStream().forEach(b -> {
-            b.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1)
-                .ifPresent(t -> writePowerFlow((String) t, b.getTerminal1().getP(), b.getTerminal1().getQ(), cimNamespace, writer));
-            b.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2)
-                .ifPresent(t -> writePowerFlow((String) t, b.getTerminal2().getP(), b.getTerminal2().getQ(), cimNamespace, writer));
-            if (b instanceof TieLine && context.exportBoundaryPowerFlows()) {
-                TieLine tl = (TieLine) b;
-                Optional.ofNullable(tl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + tl.getHalf1().getId() + ".Terminal_Network"))
-                        .ifPresent(t -> writePowerFlow(t, tl.getTerminal1().getP(), tl.getTerminal1().getQ(), cimNamespace, writer));
-                Optional.ofNullable(tl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + tl.getHalf2().getId() + ".Terminal_Network"))
-                        .ifPresent(t -> writePowerFlow(t, tl.getTerminal2().getP(), tl.getTerminal2().getQ(), cimNamespace, writer));
-                tl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "HALF1." + CgmesNames.TERMINAL + "_Boundary")
-                        .ifPresent(t -> writePowerFlow(t, tl.getHalf1().getBoundary().getP(), tl.getHalf1().getBoundary().getQ(), cimNamespace, writer));
-                tl.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + "HALF2." + CgmesNames.TERMINAL + "_Boundary")
-                        .ifPresent(t -> writePowerFlow(t, tl.getHalf2().getBoundary().getP(), tl.getHalf2().getBoundary().getQ(), cimNamespace, writer));
-                Optional.ofNullable(tl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + tl.getHalf1().getId() + ".Terminal_Boundary"))
-                        .ifPresent(t -> writePowerFlow(t, tl.getHalf1().getBoundary().getP(), tl.getHalf1().getBoundary().getQ(), cimNamespace, writer));
-                Optional.ofNullable(tl.getProperty(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + tl.getHalf2().getId() + ".Terminal_Boundary"))
-                        .ifPresent(t -> writePowerFlow(t, tl.getHalf2().getBoundary().getP(), tl.getHalf2().getBoundary().getQ(), cimNamespace, writer));
-            }
-        });
+        network.getTwoWindingsTransformerStream().forEach(b -> writeConnectableBranchPowerFlow(cimNamespace, writer, context, b));
+        network.getLineStream().forEach(b -> writeConnectableBranchPowerFlow(cimNamespace, writer, context, b));
 
         network.getThreeWindingsTransformerStream().forEach(twt -> {
-            twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1)
-                .ifPresent(t -> writePowerFlow(t, twt.getLeg1().getTerminal().getP(), twt.getLeg1().getTerminal().getQ(), cimNamespace, writer));
-            twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2)
-                .ifPresent(t -> writePowerFlow(t, twt.getLeg2().getTerminal().getP(), twt.getLeg2().getTerminal().getQ(), cimNamespace, writer));
-            twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL3)
-                .ifPresent(t -> writePowerFlow(t, twt.getLeg3().getTerminal().getP(), twt.getLeg3().getTerminal().getQ(), cimNamespace, writer));
+            writePowerFlowTerminalFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1, twt.getLeg1().getTerminal(), cimNamespace, writer, context);
+            writePowerFlowTerminalFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2, twt.getLeg2().getTerminal(), cimNamespace, writer, context);
+            writePowerFlowTerminalFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL3, twt.getLeg3().getTerminal(), cimNamespace, writer, context);
         });
 
         if (context.exportFlowsForSwitches()) {
-            network.getVoltageLevelStream().forEach(vl -> {
-                SwitchesFlow swflows = new SwitchesFlow(vl);
-                vl.getSwitches().forEach(sw -> {
-                    if (swflows.hasFlow(sw.getId())) {
-                        sw.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1)
-                            .ifPresent(t -> writePowerFlow(t, swflows.getP1(sw.getId()), swflows.getQ1(sw.getId()), cimNamespace, writer));
-                        sw.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2)
-                            .ifPresent(t -> writePowerFlow(t, swflows.getP2(sw.getId()), swflows.getQ2(sw.getId()), cimNamespace, writer));
-                    }
-                });
-            });
+            network.getVoltageLevelStream().forEach(vl -> writePowerFlowForSwitchesInVoltageLevel(vl, cimNamespace, writer, context));
         }
+    }
+
+    private static void writePowerFlowForSwitchesInVoltageLevel(VoltageLevel vl, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        SlackTerminal st = vl.getExtension(SlackTerminal.class);
+        Terminal slackTerminal = st != null ? st.getTerminal() : null;
+        SwitchesFlow swflows = new SwitchesFlow(vl, slackTerminal);
+        vl.getSwitches().forEach(sw -> {
+            if (context.isExportedEquipment(sw)) {
+                writePowerFlowTerminalFromAlias(sw, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1, swflows.getP1(sw.getId()), swflows.getQ1(sw.getId()), cimNamespace, writer, context);
+                writePowerFlowTerminalFromAlias(sw, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2, swflows.getP2(sw.getId()), swflows.getQ2(sw.getId()), cimNamespace, writer, context);
+            }
+        });
+    }
+
+    private static void writeConnectableBranchPowerFlow(String cimNamespace, XMLStreamWriter writer, CgmesExportContext context, Branch<?> b) {
+        writePowerFlowTerminalFromAlias(b, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1, b.getTerminal1(), cimNamespace, writer, context);
+        writePowerFlowTerminalFromAlias(b, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL2, b.getTerminal2(), cimNamespace, writer, context);
     }
 
     private static <I extends Injection<I>> void writeInjectionsPowerFlows(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context, Function<Network, Stream<I>> getInjectionStream) {
         getInjectionStream.apply(network).forEach(i -> {
             if (context.isExportedEquipment(i)) {
-                writePowerFlow(i.getTerminal(), cimNamespace, writer);
+                writePowerFlow(i.getTerminal(), cimNamespace, writer, context);
             }
         });
     }
 
-    private static void writePowerFlow(Terminal terminal, String cimNamespace, XMLStreamWriter writer) {
-        String cgmesTerminal = ((Connectable<?>) terminal.getConnectable()).getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.TERMINAL1).orElse(null);
+    private static void writePowerFlow(Terminal terminal, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        String cgmesTerminal = CgmesExportUtil.getTerminalId(terminal, context);
         if (cgmesTerminal != null) {
-            writePowerFlow(cgmesTerminal, getTerminalP(terminal), terminal.getQ(), cimNamespace, writer);
+            writePowerFlow(cgmesTerminal, terminal.getP(), terminal.getQ(), cimNamespace, writer, context);
         } else {
             LOG.error("No defined CGMES terminal for {}", terminal.getConnectable().getId());
         }
-    }
-
-    private static double getTerminalP(Terminal terminal) {
-        double p = terminal.getP();
-        if (!Double.isNaN(p)) {
-            return p;
-        }
-        // P is NaN
-        if (Double.isNaN(terminal.getQ())) {
-            return p;
-        }
-        // P is NaN and Q != NaN
-        if (terminal.getConnectable() instanceof StaticVarCompensator) {
-            return 0.0;
-        }
-        if (terminal.getConnectable() instanceof ShuntCompensator) {
-            return 0.0;
-        }
-        return p;
     }
 
     private static void writeSvInjection(Load load, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
@@ -311,46 +457,62 @@ public final class StateVariablesExport {
         // These loads have been taken into account as inputs for potential power flow analysis
         // They will be written back as SvInjection objects in the SV profile
         // We do not want to export them back as new objects in the EQ profile
-        Bus bus = load.getTerminal().getBusView().getBus();
+        Bus bus = load.getTerminal().getBusBreakerView().getBus();
         if (bus == null) {
             LOG.warn("Fictitious load does not have a BusView bus. No SvInjection is written");
         } else {
             // SvInjection will be assigned to the first of the TNs mapped to the bus
-            CgmesIidmMapping.CgmesTopologicalNode topologicalNode = context.getTopologicalNodesByBusViewBus(bus.getId()).iterator().next();
-            writeSvInjection(load, topologicalNode.getCgmesId(), cimNamespace, writer, context);
+            String topologicalNode = context.getNamingStrategy().getCgmesId(bus);
+
+            // In this special case we use the original CGMES id,
+            // to be able to keep track of it in the exported SV file
+            String svInjectionId = context.getNamingStrategy().getCgmesId(load);
+
+            writeSvInjection(svInjectionId, load.getP0(), load.getQ0(), topologicalNode, cimNamespace, writer, context);
         }
     }
 
-    private static void writePowerFlow(String terminal, double p, double q, String cimNamespace, XMLStreamWriter writer) {
-        // Export only if flow is a number
-        if (Double.isNaN(p) && Double.isNaN(q)) {
-            return;
+    private static void writePowerFlowTerminalFromAlias(Identifiable<?> c, String aliasTypeForTerminalId, Terminal t, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        // Export only if we have a terminal identifier
+        writePowerFlowTerminalFromAlias(c, aliasTypeForTerminalId, t.getP(), t.getQ(), cimNamespace, writer, context);
+    }
+
+    private static void writePowerFlowTerminalFromAlias(Identifiable<?> c, String aliasTypeForTerminalId, double p, double q, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+        // Export only if we have a terminal identifier
+        if (c.getAliasFromType(aliasTypeForTerminalId).isPresent()) {
+            String cgmesTerminalId = context.getNamingStrategy().getCgmesIdFromAlias(c, aliasTypeForTerminalId);
+            writePowerFlow(cgmesTerminalId, p, q, cimNamespace, writer, context);
+        } else {
+            LOG.error("Exporting CGMES SvPowerFlow. Missing alias for {} {}: {}", c.getType(), c.getId(), aliasTypeForTerminalId);
         }
+    }
+
+    private static void writePowerFlow(String cgmesTerminalId, double p, double q, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
         try {
-            CgmesExportUtil.writeStartId("SvPowerFlow", CgmesExportUtil.getUniqueId(), false, cimNamespace, writer);
+            CgmesExportUtil.writeStartId("SvPowerFlow", CgmesExportUtil.getUniqueRandomId(), false, cimNamespace, writer, context);
             writer.writeStartElement(cimNamespace, "SvPowerFlow.p");
             writer.writeCharacters(CgmesExportUtil.format(p));
             writer.writeEndElement();
             writer.writeStartElement(cimNamespace, "SvPowerFlow.q");
             writer.writeCharacters(CgmesExportUtil.format(q));
             writer.writeEndElement();
-            CgmesExportUtil.writeReference("SvPowerFlow.Terminal", terminal, cimNamespace, writer);
+            CgmesExportUtil.writeReference("SvPowerFlow.Terminal", cgmesTerminalId, cimNamespace, writer, context);
             writer.writeEndElement();
         } catch (XMLStreamException e) {
             throw new UncheckedXmlStreamException(e);
         }
     }
 
-    private static void writeSvInjection(Load svInjection, String topologicalNode, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
+    private static void writeSvInjection(String svInjectionId, double p, double q, String topologicalNode, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
         try {
-            CgmesExportUtil.writeStartId("SvInjection", context.getNamingStrategy().getCgmesId(svInjection), false, cimNamespace, writer);
+            CgmesExportUtil.writeStartId("SvInjection", svInjectionId, false, cimNamespace, writer, context);
             writer.writeStartElement(cimNamespace, "SvInjection.pInjection");
-            writer.writeCharacters(CgmesExportUtil.format(svInjection.getP0()));
+            writer.writeCharacters(CgmesExportUtil.format(p));
             writer.writeEndElement();
             writer.writeStartElement(cimNamespace, "SvInjection.qInjection");
-            writer.writeCharacters(CgmesExportUtil.format(svInjection.getQ0()));
+            writer.writeCharacters(CgmesExportUtil.format(q));
             writer.writeEndElement();
-            CgmesExportUtil.writeReference("SvInjection.TopologicalNode", topologicalNode, cimNamespace, writer);
+            CgmesExportUtil.writeReference("SvInjection.TopologicalNode", topologicalNode, cimNamespace, writer, context);
             writer.writeEndElement();
         } catch (XMLStreamException e) {
             throw new UncheckedXmlStreamException(e);
@@ -359,8 +521,11 @@ public final class StateVariablesExport {
 
     private static void writeShuntCompensatorSections(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
         for (ShuntCompensator s : network.getShuntCompensators()) {
-            CgmesExportUtil.writeStartId("SvShuntCompensatorSections", CgmesExportUtil.getUniqueId(), false, cimNamespace, writer);
-            CgmesExportUtil.writeReference("SvShuntCompensatorSections.ShuntCompensator",  context.getNamingStrategy().getCgmesId(s), cimNamespace, writer);
+            if ("true".equals(s.getProperty(Conversion.PROPERTY_IS_EQUIVALENT_SHUNT))) {
+                continue;
+            }
+            CgmesExportUtil.writeStartId("SvShuntCompensatorSections", CgmesExportUtil.getUniqueRandomId(), false, cimNamespace, writer, context);
+            CgmesExportUtil.writeReference("SvShuntCompensatorSections.ShuntCompensator", context.getNamingStrategy().getCgmesId(s), cimNamespace, writer, context);
             writer.writeStartElement(cimNamespace, "SvShuntCompensatorSections.sections");
             writer.writeCharacters(CgmesExportUtil.format(s.getSectionCount()));
             writer.writeEndElement();
@@ -370,31 +535,48 @@ public final class StateVariablesExport {
 
     private static void writeTapSteps(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
         for (TwoWindingsTransformer twt : network.getTwoWindingsTransformers()) {
-            if (twt.hasPhaseTapChanger()) {
-                String ptcId = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + 1).orElseGet(() -> twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + 2).orElseThrow(PowsyblException::new));
-                writeSvTapStep(ptcId, twt.getPhaseTapChanger().getTapPosition(), cimNamespace, writer);
-                writeSvTapStepHidden(twt, ptcId, cimNamespace, writer, context);
-            } else if (twt.hasRatioTapChanger()) {
-                String rtcId = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + 1).orElseGet(() -> twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + 2).orElseThrow(PowsyblException::new));
-                writeSvTapStep(rtcId, twt.getRatioTapChanger().getTapPosition(), cimNamespace, writer);
-                writeSvTapStepHidden(twt, rtcId, cimNamespace, writer, context);
-            }
+            writeTapStepsTwoWindingsTransformer(twt, cimNamespace, writer, context);
         }
 
         for (ThreeWindingsTransformer twt : network.getThreeWindingsTransformers()) {
-            int i = 1;
-            for (ThreeWindingsTransformer.Leg leg : Arrays.asList(twt.getLeg1(), twt.getLeg2(), twt.getLeg3())) {
-                if (leg.hasPhaseTapChanger()) {
-                    String ptcId = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + i).orElseThrow(PowsyblException::new);
-                    writeSvTapStep(ptcId, leg.getPhaseTapChanger().getTapPosition(), cimNamespace, writer);
-                    writeSvTapStepHidden(twt, ptcId, cimNamespace, writer, context);
-                } else if (leg.hasRatioTapChanger()) {
-                    String rtcId = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + i).orElseThrow(PowsyblException::new);
-                    writeSvTapStep(rtcId, leg.getRatioTapChanger().getTapPosition(), cimNamespace, writer);
-                    writeSvTapStepHidden(twt, rtcId, cimNamespace, writer, context);
-                }
-                i++;
+            writeTapStepsThreeWindingsTransformer(twt, cimNamespace, writer, context);
+        }
+    }
+
+    /**
+     * For two-windings transformers tap changer may be at end number 1 or 2
+     * <p>If we have exported the EQ the tap changer may have been moved from end 2 to end 1, where IIDM has modelled it.</p>
+     * <p>If we are exporting only the SV the tap changer alias to use is the one of the original location</p>
+     */
+    private static void writeTapStepsTwoWindingsTransformer(TwoWindingsTransformer twt, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+        if (twt.hasPhaseTapChanger()) {
+            int endNumber = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + 1).isPresent() ? 1 : 2;
+            String ptcId = context.getNamingStrategy().getCgmesIdFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + endNumber);
+            writeSvTapStep(ptcId, twt.getPhaseTapChanger().getTapPosition(), cimNamespace, writer, context);
+            writeSvTapStepHidden(twt, ptcId, cimNamespace, writer, context);
+        }
+        if (twt.hasRatioTapChanger()) {
+            int endNumber = twt.getAliasFromType(Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + 1).isPresent() ? 1 : 2;
+            String rtcId = context.getNamingStrategy().getCgmesIdFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + endNumber);
+            writeSvTapStep(rtcId, twt.getRatioTapChanger().getTapPosition(), cimNamespace, writer, context);
+            writeSvTapStepHidden(twt, rtcId, cimNamespace, writer, context);
+        }
+    }
+
+    private static void writeTapStepsThreeWindingsTransformer(ThreeWindingsTransformer twt, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+        int endNumber = 1;
+        for (ThreeWindingsTransformer.Leg leg : Arrays.asList(twt.getLeg1(), twt.getLeg2(), twt.getLeg3())) {
+            if (leg.hasPhaseTapChanger()) {
+                String ptcId = context.getNamingStrategy().getCgmesIdFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.PHASE_TAP_CHANGER + endNumber);
+                writeSvTapStep(ptcId, leg.getPhaseTapChanger().getTapPosition(), cimNamespace, writer, context);
+                writeSvTapStepHidden(twt, ptcId, cimNamespace, writer, context);
             }
+            if (leg.hasRatioTapChanger()) {
+                String rtcId = context.getNamingStrategy().getCgmesIdFromAlias(twt, Conversion.CGMES_PREFIX_ALIAS_PROPERTIES + CgmesNames.RATIO_TAP_CHANGER + endNumber);
+                writeSvTapStep(rtcId, leg.getRatioTapChanger().getTapPosition(), cimNamespace, writer, context);
+                writeSvTapStepHidden(twt, rtcId, cimNamespace, writer, context);
+            }
+            endNumber++;
         }
     }
 
@@ -407,18 +589,18 @@ public final class StateVariablesExport {
             for (CgmesTapChanger cgmesTc : cgmesTcs.getTapChangers()) {
                 if (cgmesTc.isHidden() && cgmesTc.getCombinedTapChangerId().equals(tcId)) {
                     int step = cgmesTc.getStep().orElseThrow(() -> new PowsyblException("Non null step expected for tap changer " + cgmesTc.getId()));
-                    writeSvTapStep(cgmesTc.getId(), step, cimNamespace, writer);
+                    writeSvTapStep(cgmesTc.getId(), step, cimNamespace, writer, context);
                 }
             }
         }
     }
 
-    private static void writeSvTapStep(String tapChangerId, int tapPosition, String cimNamespace, XMLStreamWriter writer) throws XMLStreamException {
-        CgmesExportUtil.writeStartId("SvTapStep", CgmesExportUtil.getUniqueId(), false, cimNamespace, writer);
+    private static void writeSvTapStep(String tapChangerId, int tapPosition, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
+        CgmesExportUtil.writeStartId("SvTapStep", CgmesExportUtil.getUniqueRandomId(), false, cimNamespace, writer, context);
         writer.writeStartElement(cimNamespace, "SvTapStep.position");
         writer.writeCharacters(CgmesExportUtil.format(tapPosition));
         writer.writeEndElement();
-        CgmesExportUtil.writeReference("SvTapStep.TapChanger", tapChangerId, cimNamespace, writer);
+        CgmesExportUtil.writeReference("SvTapStep.TapChanger", tapChangerId, cimNamespace, writer, context);
         writer.writeEndElement();
     }
 
@@ -435,16 +617,22 @@ public final class StateVariablesExport {
     }
 
     private static void writeConnectableStatus(Connectable<?> connectable, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
-        writeStatus(Boolean.toString(connectable.getTerminals().stream().anyMatch(Terminal::isConnected)), context.getNamingStrategy().getCgmesId(connectable), cimNamespace, writer);
+        if (CgmesExportUtil.isEquivalentShuntWithZeroSectionCount(connectable)) {
+            // Equivalent shunts do not have a section count in SSH, SV profiles,
+            // To make output consistent with IIDM section count == 0 we declare it out of service
+            writeStatus(Boolean.toString(false), context.getNamingStrategy().getCgmesId(connectable), cimNamespace, writer, context);
+            return;
+        }
+        writeStatus(Boolean.toString(connectable.getTerminals().stream().anyMatch(Terminal::isConnected)), context.getNamingStrategy().getCgmesId(connectable), cimNamespace, writer, context);
     }
 
-    private static void writeStatus(String inService, String conductingEquipmentId, String cimNamespace, XMLStreamWriter writer) {
+    private static void writeStatus(String inService, String conductingEquipmentId, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) {
         try {
-            CgmesExportUtil.writeStartId("SvStatus", CgmesExportUtil.getUniqueId(), false, cimNamespace, writer);
+            CgmesExportUtil.writeStartId("SvStatus", CgmesExportUtil.getUniqueRandomId(), false, cimNamespace, writer, context);
             writer.writeStartElement(cimNamespace, "SvStatus.inService");
             writer.writeCharacters(inService);
             writer.writeEndElement();
-            CgmesExportUtil.writeReference("SvStatus.ConductingEquipment", conductingEquipmentId, cimNamespace, writer);
+            CgmesExportUtil.writeReference("SvStatus.ConductingEquipment", conductingEquipmentId, cimNamespace, writer, context);
             writer.writeEndElement();
         } catch (XMLStreamException e) {
             throw new UncheckedXmlStreamException(e);
@@ -453,7 +641,7 @@ public final class StateVariablesExport {
 
     private static void writeConverters(Network network, String cimNamespace, XMLStreamWriter writer, CgmesExportContext context) throws XMLStreamException {
         for (HvdcConverterStation<?> converterStation : network.getHvdcConverterStations()) {
-            CgmesExportUtil.writeStartAbout(CgmesExportUtil.converterClassName(converterStation), context.getNamingStrategy().getCgmesId(converterStation), cimNamespace, writer);
+            CgmesExportUtil.writeStartAbout(CgmesExportUtil.converterClassName(converterStation), context.getNamingStrategy().getCgmesId(converterStation), cimNamespace, writer, context);
             writer.writeStartElement(cimNamespace, "ACDCConverter.poleLossP");
             writer.writeCharacters(CgmesExportUtil.format(getPoleLossP(converterStation)));
             writer.writeEndElement();

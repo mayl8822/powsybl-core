@@ -15,23 +15,23 @@ import com.powsybl.iidm.network.VariantManager;
 import com.powsybl.iidm.network.extensions.HvdcOperatorActivePowerRange;
 import com.powsybl.iidm.network.extensions.HvdcOperatorActivePowerRangeAdder;
 import com.powsybl.iidm.network.test.HvdcTestNetwork;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static com.powsybl.iidm.network.VariantManagerConstants.INITIAL_VARIANT_ID;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Paul Bui-Quang <paul.buiquang at rte-france.com>
+ * @author Paul Bui-Quang {@literal <paul.buiquang at rte-france.com>}
  */
 public abstract class AbstractHvdcOperatorActivePowerRangeTest {
 
     private Network network;
 
-    @Before
+    @BeforeEach
     public void initNetwork() {
         network = HvdcTestNetwork.createLcc();
     }
@@ -42,11 +42,10 @@ public abstract class AbstractHvdcOperatorActivePowerRangeTest {
         HvdcOperatorActivePowerRange hopc = hvdcLine.getExtension(HvdcOperatorActivePowerRange.class);
         assertNull(hopc);
 
-        hvdcLine.newExtension(HvdcOperatorActivePowerRangeAdder.class)
+        hopc = hvdcLine.newExtension(HvdcOperatorActivePowerRangeAdder.class)
                 .withOprFromCS2toCS1(1.0f)
                 .withOprFromCS1toCS2(2.0f)
                 .add();
-        hopc = hvdcLine.getExtension(HvdcOperatorActivePowerRange.class);
         assertNotNull(hopc);
         assertEquals(2.0f, hopc.getOprFromCS1toCS2(), 0f);
         assertEquals(1.0f, hopc.getOprFromCS2toCS1(), 0f);
@@ -65,11 +64,10 @@ public abstract class AbstractHvdcOperatorActivePowerRangeTest {
         String variant3 = "variant3";
 
         HvdcLine hvdcLine = network.getHvdcLine("L");
-        hvdcLine.newExtension(HvdcOperatorActivePowerRangeAdder.class)
+        HvdcOperatorActivePowerRange hopc = hvdcLine.newExtension(HvdcOperatorActivePowerRangeAdder.class)
                 .withOprFromCS2toCS1(1.0f)
                 .withOprFromCS1toCS2(2.0f)
                 .add();
-        HvdcOperatorActivePowerRange hopc = hvdcLine.getExtension(HvdcOperatorActivePowerRange.class);
 
         // Testing variant cloning
         VariantManager variantManager = network.getVariantManager();

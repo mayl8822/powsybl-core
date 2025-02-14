@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion;
@@ -23,9 +24,12 @@ import com.powsybl.triplestore.api.PropertyBag;
 import com.powsybl.triplestore.api.PropertyBags;
 import com.powsybl.triplestore.api.TripleStore;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 @AutoService(CgmesImportPostProcessor.class)
 public class PhaseAngleClock implements CgmesImportPostProcessor {
@@ -47,16 +51,21 @@ public class PhaseAngleClock implements CgmesImportPostProcessor {
             LOG.warn("PhaseAngleClock-PostProcessor: Unexpected null cgmesModel pointer");
             return;
         }
-
-        cgmes.groupedTransformerEnds().forEach((t, ends) -> {
-            if (ends.size() == 2) {
-                phaseAngleClockTwoWindingTransformer(ends, network);
-            } else if (ends.size() == 3) {
-                phaseAngleClockThreeWindingTransformer(ends, network);
-            } else {
-                throw new PowsyblException(String.format("Unexpected TransformerEnds: ends %d", ends.size()));
-            }
-        });
+        Map<String, PropertyBags> groupedTransformerEnds = new HashMap<>();
+        cgmes.transformerEnds()
+                .forEach(p -> groupedTransformerEnds
+                        .computeIfAbsent(p.getId("PowerTransformer"), b -> new PropertyBags())
+                        .add(p));
+        groupedTransformerEnds.values()
+                .forEach(ends -> {
+                    if (ends.size() == 2) {
+                        phaseAngleClockTwoWindingTransformer(ends, network);
+                    } else if (ends.size() == 3) {
+                        phaseAngleClockThreeWindingTransformer(ends, network);
+                    } else {
+                        throw new PowsyblException(String.format("Unexpected TransformerEnds: ends %d", ends.size()));
+                    }
+                });
     }
 
     private void phaseAngleClockTwoWindingTransformer(PropertyBags ends, Network network) {

@@ -3,21 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class ExecutionErrorTest {
+class ExecutionErrorTest {
 
     @Test
-    public void test() {
+    void test() {
         Command command = Mockito.mock(Command.class);
         Mockito.when(command.getId())
                 .thenReturn("cmd");
@@ -28,9 +29,9 @@ public class ExecutionErrorTest {
         assertEquals("cmd[0]=-1", executionError.toString());
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testErrorIndex() {
+    @Test
+    void testErrorIndex() {
         Command command = Mockito.mock(Command.class);
-        new ExecutionError(command, -1, -1);
+        assertThrows(IllegalArgumentException.class, () -> new ExecutionError(command, -1, -1));
     }
 }

@@ -3,24 +3,24 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ucte.network;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
 public class UcteNetworkImplTest {
 
     @Test
-    public void test() {
+    void test() {
         UcteNetwork network = UcteNetworkFactory.createNetwork(UcteNetworkImpl::new);
         testNetwork(network);
     }
@@ -41,22 +41,22 @@ public class UcteNetworkImplTest {
         assertEquals(0, network.getComments().size());
 
         assertEquals(3, network.getNodes().size());
-        List<UcteNodeCode> codes = network.getNodes().stream().map(UcteNode::getCode).collect(Collectors.toList());
+        List<UcteNodeCode> codes = network.getNodes().stream().map(UcteNode::getCode).toList();
         assertTrue(codes.containsAll(Arrays.asList(code1, code2, code3)));
         UcteNode node = network.getNode(code1);
         assertEquals(1000.0, node.getActivePowerGeneration(), 0.0);
         assertNotNull(network.getNode(code1));
-        assertThrows("Node " + code4.toString() + " not found", UcteException.class, () -> network.getNode(code4));
+        assertThrows(UcteException.class, () -> network.getNode(code4), "Node " + code4.toString() + " not found");
 
         assertEquals(1, network.getLines().size());
         assertEquals(lineId, network.getLines().iterator().next().getId());
         assertNotNull(network.getLine(lineId));
-        assertThrows("Line " + transformerId + " not found", UcteException.class, () -> network.getLine(transformerId));
+        assertThrows(UcteException.class, () -> network.getLine(transformerId), "Line " + transformerId + " not found");
 
         assertEquals(1, network.getTransformers().size());
         assertEquals(transformerId, network.getTransformers().iterator().next().getId());
         assertNotNull(network.getTransformer(transformerId));
-        assertThrows("Transformer " + lineId + " not found", UcteException.class, () -> network.getTransformer(lineId));
+        assertThrows(UcteException.class, () -> network.getTransformer(lineId), "Transformer " + lineId + " not found");
 
         assertEquals(1, network.getRegulations().size());
         assertEquals(transformerId, network.getRegulations().iterator().next().getTransfoId());

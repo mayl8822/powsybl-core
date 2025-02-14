@@ -3,21 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
 import com.powsybl.iidm.network.ReactiveCapabilityCurve.Point;
 import com.powsybl.iidm.network.impl.ReactiveCapabilityCurveImpl.PointImpl;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.TreeMap;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class ReactiveCapabilityCurveImplTest {
+class ReactiveCapabilityCurveImplTest {
 
     private ReactiveCapabilityCurveImpl createCurve(Point... points) {
         TreeMap<Double, Point> map = new TreeMap<>();
@@ -28,7 +29,7 @@ public class ReactiveCapabilityCurveImplTest {
     }
 
     @Test
-    public void testInterpolation() {
+    void testInterpolation() {
         ReactiveCapabilityCurveImpl curve = createCurve(new PointImpl(100.0, 200.0, 300.0),
                                                         new PointImpl(200.0, 300.0, 400.0));
         // bounds test

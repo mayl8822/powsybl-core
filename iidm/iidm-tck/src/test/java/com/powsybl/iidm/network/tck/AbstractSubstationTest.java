@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck;
 
@@ -14,24 +15,19 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.NetworkListener;
 import com.powsybl.iidm.network.Substation;
 import com.powsybl.iidm.network.ValidationException;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public abstract class AbstractSubstationTest {
 
     private static final String SUB_NAME = "sub_name";
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     private Network network;
 
-    @Before
+    @BeforeEach
     public void initNetwork() {
         network = Network.create("test", "test");
     }
@@ -62,7 +58,7 @@ public abstract class AbstractSubstationTest {
 
         // Create mocked network listeners
         NetworkListener exceptionListener = mock(DefaultNetworkListener.class);
-        doThrow(new UnsupportedOperationException()).when(exceptionListener).onElementAdded(any(), anyString(), any());
+        doThrow(new UnsupportedOperationException()).when(exceptionListener).onUpdate(any(), anyString(), anyString(), any(), any());
         NetworkListener mockedListener = mock(DefaultNetworkListener.class);
         // Test without listeners registered
         substation.addGeographicalTag("no listeners");
@@ -75,7 +71,7 @@ public abstract class AbstractSubstationTest {
         substation.addGeographicalTag("test");
         // Check notification done
         verify(mockedListener, times(1))
-               .onElementAdded(any(Substation.class), anyString(), anyString());
+               .onUpdate(any(Substation.class), anyString(), isNull(), any(), any());
         // Remove observer
         network.removeListener(mockedListener);
 
@@ -100,7 +96,6 @@ public abstract class AbstractSubstationTest {
 
     @Test
     public void addNullTag() {
-        thrown.expect(ValidationException.class);
         Substation substation = network.newSubstation()
                                         .setId("sub")
                                         .setName(SUB_NAME)
@@ -109,9 +104,8 @@ public abstract class AbstractSubstationTest {
                                         .setEnsureIdUnicity(false)
                                         .setGeographicalTags("geoTag1", "geoTag2")
                                     .add();
-        thrown.expect(ValidationException.class);
-        thrown.expectMessage("geographical tag is null");
-        substation.addGeographicalTag(null);
+        ValidationException e = assertThrows(ValidationException.class, () -> substation.addGeographicalTag(null));
+        assertTrue(e.getMessage().contains("geographical tag is null"));
     }
 
     @Test
@@ -121,13 +115,13 @@ public abstract class AbstractSubstationTest {
                 .setName(SUB_NAME)
                 .setCountry(Country.AD)
             .add();
-        thrown.expect(PowsyblException.class);
-        thrown.expectMessage("with the id 'duplicate'");
-        network.newSubstation()
-                .setId("duplicate")
-                .setName(SUB_NAME)
-                .setCountry(Country.AD)
-            .add();
+        PowsyblException e = assertThrows(PowsyblException.class, () ->
+                network.newSubstation()
+                        .setId("duplicate")
+                        .setName(SUB_NAME)
+                        .setCountry(Country.AD)
+                        .add());
+        assertTrue(e.getMessage().contains("with the id 'duplicate'"));
     }
 
 }

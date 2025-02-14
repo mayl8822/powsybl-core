@@ -1,8 +1,9 @@
 /**
- * Copyright (c) 2019, RTE (http://www.rte-france.com)
+ * Copyright (c) 2024, RTE (http://www.rte-france.com)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.ucte.converter;
@@ -14,20 +15,20 @@ import com.powsybl.ucte.network.UcteCountryCode;
 import com.powsybl.ucte.network.UcteElementId;
 import com.powsybl.ucte.network.UcteNodeCode;
 import com.powsybl.ucte.network.UcteVoltageLevelCode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
-public class NamingStrategyTest {
+class NamingStrategyTest {
 
     @Test
-    public void testUcteCode() {
+    void testUcteCode() {
         NamingStrategy strategy = new DefaultNamingStrategy();
 
         UcteNodeCode code = strategy.getUcteNodeCode("FABCDE12");
@@ -41,7 +42,7 @@ public class NamingStrategyTest {
     }
 
     @Test
-    public void testUcteElementId() {
+    void testUcteElementId() {
         NamingStrategy strategy = new DefaultNamingStrategy();
 
         UcteElementId elementId = strategy.getUcteElementId("FABCDE12 BFGHIJ2A 1");
@@ -55,7 +56,7 @@ public class NamingStrategyTest {
     }
 
     @Test
-    public void testWithNetwork() {
+    void testWithNetwork() {
         ResourceDataSource dataSource = new ResourceDataSource("expectedExport", new ResourceSet("/", "expectedExport.uct"));
 
         UcteImporter importer = new UcteImporter();

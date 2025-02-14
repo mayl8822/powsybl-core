@@ -3,14 +3,15 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,11 +31,11 @@ import com.powsybl.triplestore.api.TripleStoreException;
 import com.powsybl.triplestore.api.TripleStoreFactory;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class TripleStoreTester {
+class TripleStoreTester {
 
-    public TripleStoreTester(List<String> implementations, String baseName, String... inputResourceNames) {
+    TripleStoreTester(List<String> implementations, String baseName, String... inputResourceNames) {
         this.implementations = implementations;
         this.baseName = baseName;
         this.inputResourceNames = inputResourceNames;
@@ -106,7 +107,7 @@ public class TripleStoreTester {
         }
     }
 
-    public void clear(String contextName, String namespace) {
+    void clear(String contextName, String namespace) {
         for (String impl : implementations) {
             TripleStore ts = tripleStores.get(impl);
             Set<String> before = ts.contextNames();

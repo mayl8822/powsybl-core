@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.ieeecdf.model;
 
@@ -10,9 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -23,24 +24,24 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class IeeeCdfReaderWriterTest {
+class IeeeCdfReaderWriterTest {
 
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private FileSystem fileSystem;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         fileSystem.close();
     }
 
@@ -69,37 +70,42 @@ public class IeeeCdfReaderWriterTest {
     }
 
     @Test
-    public void testIeee9() throws IOException {
+    void testIeee9() throws IOException {
         testIeeeFile("ieee9cdf.txt");
     }
 
     @Test
-    public void testIeee14() throws IOException {
+    void testIeee14() throws IOException {
         testIeeeFile("ieee14cdf.txt");
     }
 
     @Test
-    public void testIeee30() throws IOException {
+    void testIeee30() throws IOException {
         testIeeeFile("ieee30cdf.txt");
     }
 
     @Test
-    public void testIeee57() throws IOException {
+    void testIeee57() throws IOException {
         testIeeeFile("ieee57cdf.txt");
     }
 
     @Test
-    public void testIeee118() throws IOException {
+    void testIeee118() throws IOException {
         testIeeeFile("ieee118cdf.txt");
     }
 
     @Test
-    public void testIeee300() throws IOException {
+    void testIeee300() throws IOException {
         testIeeeFile("ieee300cdf.txt");
     }
 
     @Test
-    public void testTieLine() throws IOException {
+    void testIeee9zeroimpedance() throws IOException {
+        testIeeeFile("ieee9zeroimpedancecdf.txt");
+    }
+
+    @Test
+    void testTieLine() throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/tieline.txt")))) {
             IeeeCdfModel model = new IeeeCdfReader().read(reader);
             assertEquals(1, model.getTieLines().size());

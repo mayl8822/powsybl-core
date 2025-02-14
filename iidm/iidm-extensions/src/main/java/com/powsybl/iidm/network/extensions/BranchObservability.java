@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.extensions;
 
@@ -10,7 +11,7 @@ import com.powsybl.commons.extensions.Extension;
 import com.powsybl.iidm.network.Branch;
 
 /**
- * @author Thomas Adam <tadam at silicom.fr>
+ * @author Thomas Adam {@literal <tadam at silicom.fr>}
  */
 public interface BranchObservability<B extends Branch<B>> extends Extension<B>, Observability<B> {
 
@@ -27,7 +28,7 @@ public interface BranchObservability<B extends Branch<B>> extends Extension<B>, 
      */
     ObservabilityQuality<B> getQualityP1();
 
-    BranchObservability<B> setQualityP1(double standardDeviation, boolean redundant);
+    BranchObservability<B> setQualityP1(double standardDeviation, Boolean redundant);
 
     BranchObservability<B> setQualityP1(double standardDeviation);
 
@@ -37,7 +38,7 @@ public interface BranchObservability<B extends Branch<B>> extends Extension<B>, 
      */
     ObservabilityQuality<B> getQualityP2();
 
-    BranchObservability<B> setQualityP2(double standardDeviation, boolean redundant);
+    BranchObservability<B> setQualityP2(double standardDeviation, Boolean redundant);
 
     BranchObservability<B> setQualityP2(double standardDeviation);
 
@@ -47,7 +48,7 @@ public interface BranchObservability<B extends Branch<B>> extends Extension<B>, 
      */
     ObservabilityQuality<B> getQualityQ1();
 
-    BranchObservability<B> setQualityQ1(double standardDeviation, boolean redundant);
+    BranchObservability<B> setQualityQ1(double standardDeviation, Boolean redundant);
 
     BranchObservability<B> setQualityQ1(double standardDeviation);
 
@@ -57,7 +58,7 @@ public interface BranchObservability<B extends Branch<B>> extends Extension<B>, 
      */
     ObservabilityQuality<B> getQualityQ2();
 
-    BranchObservability<B> setQualityQ2(double standardDeviation, boolean redundant);
+    BranchObservability<B> setQualityQ2(double standardDeviation, Boolean redundant);
 
     BranchObservability<B> setQualityQ2(double standardDeviation);
 }

@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.distributed;
 
@@ -13,16 +14,24 @@ import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.powsybl.computation.*;
 import com.powsybl.contingency.Contingency;
+import com.powsybl.contingency.ContingencyContext;
+import com.powsybl.iidm.network.LimitType;
 import com.powsybl.iidm.network.VariantManagerConstants;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
+import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.security.*;
+import com.powsybl.action.Action;
+import com.powsybl.action.SwitchAction;
+import com.powsybl.security.condition.TrueCondition;
 import com.powsybl.security.converter.JsonSecurityAnalysisResultExporter;
 import com.powsybl.security.execution.SecurityAnalysisExecutionInput;
+import com.powsybl.security.limitreduction.LimitReduction;
 import com.powsybl.security.results.PostContingencyResult;
+import com.powsybl.security.strategy.OperatorStrategy;
 import org.apache.commons.lang3.SystemUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.ByteArrayInputStream;
@@ -41,29 +50,29 @@ import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
-public class SecurityAnalysisExecutionHandlersTest {
+class SecurityAnalysisExecutionHandlersTest {
 
     private FileSystem fileSystem;
     private Path workingDir;
 
-    @Before
-    public void createFileSystem() {
+    @BeforeEach
+    void createFileSystem() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         workingDir = fileSystem.getPath("/work");
     }
 
-    @After
-    public void closeFileSystem() throws IOException {
+    @AfterEach
+    void closeFileSystem() throws IOException {
         fileSystem.close();
     }
 
     @Test
-    public void forwardedBeforeWithPartialInput() throws IOException {
+    void forwardedBeforeWithPartialInput() throws IOException {
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput();
         input.setParameters(new SecurityAnalysisParameters());
         input.setNetworkVariant(EurostagTutorialExample1Factory.create(), VariantManagerConstants.INITIAL_VARIANT_ID);
@@ -93,7 +102,7 @@ public class SecurityAnalysisExecutionHandlersTest {
     }
 
     @Test
-    public void forwardedAfter() throws IOException {
+    void forwardedAfter() throws IOException {
 
         try (Writer writer = Files.newBufferedWriter(workingDir.resolve("result.json"))) {
             new JsonSecurityAnalysisResultExporter().export(SecurityAnalysisResult.empty(), writer);
@@ -104,19 +113,26 @@ public class SecurityAnalysisExecutionHandlersTest {
         SecurityAnalysisResult result = report.getResult();
 
         assertNotNull(result);
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertTrue(result.getPreContingencyLimitViolationsResult().getLimitViolations().isEmpty());
         assertTrue(result.getPostContingencyResults().isEmpty());
     }
 
     @Test
-    public void forwardedBeforeWithCompleteInput() throws IOException {
+    void forwardedBeforeWithCompleteInput() throws IOException {
+        Action action = new SwitchAction("action", "switch", false);
+        OperatorStrategy strategy = new OperatorStrategy("strat", ContingencyContext.specificContingency("cont"), new TrueCondition(), List.of("action"));
+        LimitReduction limitReduction = new LimitReduction(LimitType.CURRENT, 0.9);
+
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
                 .setParameters(new SecurityAnalysisParameters())
                 .setNetworkVariant(EurostagTutorialExample1Factory.create(), VariantManagerConstants.INITIAL_VARIANT_ID)
                 .setContingenciesSource(ByteSource.wrap("contingencies definition".getBytes(StandardCharsets.UTF_8)))
                 .addResultExtensions(ImmutableList.of("ext1", "ext2"))
-                .addViolationTypes(ImmutableList.of(LimitViolationType.CURRENT));
+                .addViolationTypes(ImmutableList.of(LimitViolationType.CURRENT))
+                .setActions(List.of(action))
+                .setOperatorStrategies(List.of(strategy))
+                .setLimitReductions(List.of(limitReduction));
         ExecutionHandler<SecurityAnalysisReport> handler = SecurityAnalysisExecutionHandlers.forwarded(input, 12);
 
         Path workingDir = fileSystem.getPath("/work");
@@ -129,6 +145,9 @@ public class SecurityAnalysisExecutionHandlersTest {
                         "--output-file=/work/result.json",
                         "--output-format=JSON",
                         "--contingencies-file=/work/contingencies.groovy",
+                        "--actions-file=/work/actions.json",
+                        "--strategies-file=/work/strategies.json",
+                        "--limit-reductions-file=/work/limit-reductions.json",
                         "--with-extensions=ext1,ext2",
                         "--limit-types=CURRENT",
                         "--task-count=12");
@@ -136,10 +155,13 @@ public class SecurityAnalysisExecutionHandlersTest {
         assertThat(workingDir.resolve("network.xiidm")).exists();
         assertThat(workingDir.resolve("parameters.json")).exists();
         assertThat(workingDir.resolve("contingencies.groovy")).exists();
+        assertThat(workingDir.resolve("strategies.json")).exists();
+        assertThat(workingDir.resolve("actions.json")).exists();
+        assertThat(workingDir.resolve("limit-reductions.json")).exists();
     }
 
     @Test
-    public void distributedBefore() throws IOException {
+    void distributedBefore() throws IOException {
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
                 .setParameters(new SecurityAnalysisParameters())
                 .setNetworkVariant(EurostagTutorialExample1Factory.create(), VariantManagerConstants.INITIAL_VARIANT_ID)
@@ -173,7 +195,7 @@ public class SecurityAnalysisExecutionHandlersTest {
     }
 
     @Test
-    public void distributedBeforeWithLog() throws IOException {
+    void distributedBeforeWithLog() throws IOException {
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
                 .setParameters(new SecurityAnalysisParameters())
                 .setNetworkVariant(EurostagTutorialExample1Factory.create(), VariantManagerConstants.INITIAL_VARIANT_ID)
@@ -204,7 +226,7 @@ public class SecurityAnalysisExecutionHandlersTest {
     }
 
     @Test
-    public void forwardedBeforeWithLog() throws IOException {
+    void forwardedBeforeWithLog() throws IOException {
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
                 .setParameters(new SecurityAnalysisParameters())
                 .setNetworkVariant(EurostagTutorialExample1Factory.create(), VariantManagerConstants.INITIAL_VARIANT_ID)
@@ -225,13 +247,13 @@ public class SecurityAnalysisExecutionHandlersTest {
     }
 
     private static SecurityAnalysisResult resultForContingency(String id) {
-        return new SecurityAnalysisResult(LimitViolationsResult.empty(),
-                Collections.singletonList(new PostContingencyResult(new Contingency(id),
+        return new SecurityAnalysisResult(LimitViolationsResult.empty(), LoadFlowResult.ComponentResult.Status.CONVERGED,
+                Collections.singletonList(new PostContingencyResult(new Contingency(id), PostContingencyComputationStatus.CONVERGED,
                         LimitViolationsResult.empty())));
     }
 
     @Test
-    public void distributedAfter() throws IOException {
+    void distributedAfter() throws IOException {
         JsonSecurityAnalysisResultExporter exporter = new JsonSecurityAnalysisResultExporter();
         try (Writer writer = Files.newBufferedWriter(workingDir.resolve("task_0_result.json"))) {
             exporter.export(resultForContingency("c1"), writer);
@@ -256,7 +278,7 @@ public class SecurityAnalysisExecutionHandlersTest {
         SecurityAnalysisResult result = report.getResult();
 
         assertNotNull(result);
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertTrue(result.getPreContingencyLimitViolationsResult().getLimitViolations().isEmpty());
         assertEquals(2, result.getPostContingencyResults().size());
         assertEquals("c1", result.getPostContingencyResults().get(0).getContingency().getId());
@@ -277,7 +299,7 @@ public class SecurityAnalysisExecutionHandlersTest {
     }
 
     @Test
-    public void distributedAfterWithLogs() throws IOException {
+    void distributedAfterWithLogs() throws IOException {
         JsonSecurityAnalysisResultExporter exporter = new JsonSecurityAnalysisResultExporter();
 
         Set<String> expectedLogs = ImmutableSet.of("logs_0.zip",
@@ -287,7 +309,7 @@ public class SecurityAnalysisExecutionHandlersTest {
                 "security-analysis-task_1.out",
                 "security-analysis-task_1.err");
         for (String logFileName : expectedLogs) {
-            Files.write(workingDir.resolve(logFileName), "logs".getBytes(StandardCharsets.UTF_8));
+            Files.writeString(workingDir.resolve(logFileName), "logs");
         }
 
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
@@ -309,7 +331,7 @@ public class SecurityAnalysisExecutionHandlersTest {
             fail();
         } catch (Exception e) {
             // ignored
-            assertTrue(e instanceof ComputationException);
+            assertInstanceOf(ComputationException.class, e);
         }
 
         try (Writer writer = Files.newBufferedWriter(workingDir.resolve("task_0_result.json"))) {
@@ -325,20 +347,20 @@ public class SecurityAnalysisExecutionHandlersTest {
         SecurityAnalysisResult result = report.getResult();
 
         assertNotNull(result);
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertTrue(result.getPreContingencyLimitViolationsResult().getLimitViolations().isEmpty());
         assertEquals(2, result.getPostContingencyResults().size());
         assertEquals("c1", result.getPostContingencyResults().get(0).getContingency().getId());
         assertEquals("c2", result.getPostContingencyResults().get(1).getContingency().getId());
 
         byte[] logBytes = report.getLogBytes()
-                .orElseThrow(AssertionError::new);
+                .orElseThrow(IllegalStateException::new);
         Set<String> foundNames = getFileNamesFromZip(logBytes);
         assertEquals(expectedLogs, foundNames);
     }
 
     @Test
-    public void forwardedAfterWithLogs() throws IOException {
+    void forwardedAfterWithLogs() throws IOException {
         JsonSecurityAnalysisResultExporter exporter = new JsonSecurityAnalysisResultExporter();
 
         Set<String> expectedLogs = ImmutableSet.of("logs.zip",
@@ -346,7 +368,7 @@ public class SecurityAnalysisExecutionHandlersTest {
                 "security-analysis.err");
 
         for (String logFileName : expectedLogs) {
-            Files.write(workingDir.resolve(logFileName), "logs".getBytes(StandardCharsets.UTF_8));
+            Files.writeString(workingDir.resolve(logFileName), "logs");
         }
 
         SecurityAnalysisExecutionInput input = new SecurityAnalysisExecutionInput()
@@ -372,7 +394,7 @@ public class SecurityAnalysisExecutionHandlersTest {
         SecurityAnalysisResult result = report.getResult();
 
         assertNotNull(result);
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertTrue(result.getPreContingencyLimitViolationsResult().getLimitViolations().isEmpty());
         assertEquals(1, result.getPostContingencyResults().size());
         assertEquals("c1", result.getPostContingencyResults().get(0).getContingency().getId());
@@ -380,7 +402,7 @@ public class SecurityAnalysisExecutionHandlersTest {
         assertTrue(report.getLogBytes().isPresent());
 
         byte[] logBytes = report.getLogBytes()
-                .orElseThrow(AssertionError::new);
+                .orElseThrow(IllegalStateException::new);
         Set<String> foundNames = getFileNamesFromZip(logBytes);
         assertEquals(expectedLogs, foundNames);
     }

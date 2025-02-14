@@ -3,26 +3,27 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.modification.tripping;
 
 import com.powsybl.commons.PowsyblException;
+import com.powsybl.iidm.modification.AbstractNetworkModification;
 import com.powsybl.iidm.network.HvdcLine;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.Terminal;
 import com.powsybl.iidm.network.test.HvdcTestNetwork;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class HvdcLineTrippingTest {
+class HvdcLineTrippingTest {
 
     @Test
-    public void lineTrippingTest() {
+    void lineTrippingTest() {
         Network network = HvdcTestNetwork.createLcc();
         HvdcLine hvdcLine = network.getHvdcLine("L");
         Terminal terminal1 = hvdcLine.getConverterStation1().getTerminal();
@@ -58,19 +59,25 @@ public class HvdcLineTrippingTest {
         assertFalse(terminal2.isConnected());
     }
 
-    @Test(expected = PowsyblException.class)
-    public void unknownHvdcLineTrippingTest() {
+    @Test
+    void unknownHvdcLineTrippingTest() {
         Network network = HvdcTestNetwork.createLcc();
 
         HvdcLineTripping tripping = new HvdcLineTripping("unknownHvdcLine");
-        tripping.apply(network);
+        assertThrows(PowsyblException.class, () -> tripping.apply(network));
     }
 
-    @Test(expected = PowsyblException.class)
-    public void unknownVoltageLevelTrippingTest() {
+    @Test
+    void unknownVoltageLevelTrippingTest() {
         Network network = HvdcTestNetwork.createLcc();
 
         HvdcLineTripping tripping = new HvdcLineTripping("L", "unknownVoltageLevel");
-        tripping.apply(network);
+        assertThrows(PowsyblException.class, () -> tripping.apply(network));
+    }
+
+    @Test
+    void testGetName() {
+        AbstractNetworkModification networkModification = new HvdcLineTripping("ID", "VLID");
+        assertEquals("HvdcLineTripping", networkModification.getName());
     }
 }

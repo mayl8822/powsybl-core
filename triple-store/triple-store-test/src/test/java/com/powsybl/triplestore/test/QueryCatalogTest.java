@@ -3,22 +3,23 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.triplestore.test;
 
 import com.powsybl.triplestore.api.QueryCatalog;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class QueryCatalogTest {
+class QueryCatalogTest {
 
     @Test
-    public void testHashCodeEquals() {
+    void testHashCodeEquals() {
         QueryCatalog q1 = new QueryCatalog("foaf/foaf-graphs.sparql");
         QueryCatalog q2 = new QueryCatalog("foaf/foaf-graphs.sparql");
         QueryCatalog q3 = new QueryCatalog("foaf/foaf-graphs-copy.sparql");

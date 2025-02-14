@@ -3,10 +3,13 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
 
+import com.powsybl.cgmes.conversion.Conversion;
+import com.powsybl.cgmes.model.CgmesNames;
 import com.powsybl.iidm.network.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,13 +18,17 @@ import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.conversion.ConversionException;
 import com.powsybl.triplestore.api.PropertyBag;
 
+import java.util.Optional;
+
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class SwitchConversion extends AbstractConductingEquipmentConversion implements EquipmentAtBoundaryConversion {
 
+    private DanglingLine danglingLine;
+
     public SwitchConversion(PropertyBag sw, Context context) {
-        super("Switch", sw, context, 2);
+        super(CgmesNames.SWITCH, sw, context, 2);
     }
 
     @Override
@@ -38,9 +45,9 @@ public class SwitchConversion extends AbstractConductingEquipmentConversion impl
         }
         if ((isBoundary(1) || isBoundary(2)) && LOG.isWarnEnabled()) {
             LOG.warn("Switch {} has at least one end in the boundary", id);
-            LOG.warn("    busId1, voltageLevel1 : {} {}", busId(1), voltageLevel(1));
+            LOG.warn("    busId1, voltageLevel1 : {} {}", busId(1), voltageLevel(1).orElse(null));
             LOG.warn("    side 1 is boundary    : {}", isBoundary(1));
-            LOG.warn("    busId2, voltageLevel2 : {} {}", busId(2), voltageLevel(2));
+            LOG.warn("    busId2, voltageLevel2 : {} {}", busId(2), voltageLevel(2).orElse(null));
             LOG.warn("    side 2 is boundary    : {}", isBoundary(2));
         }
         return true;
@@ -63,8 +70,8 @@ public class SwitchConversion extends AbstractConductingEquipmentConversion impl
     }
 
     @Override
-    public BoundaryLine asBoundaryLine(String node) {
-        return super.createBoundaryLine(node);
+    public Optional<DanglingLine> getDanglingLine() {
+        return Optional.ofNullable(danglingLine);
     }
 
     private Switch convertToSwitch() {
@@ -78,11 +85,16 @@ public class SwitchConversion extends AbstractConductingEquipmentConversion impl
             boolean retained = p.asBoolean("retained", false);
             adder.setRetained(retained);
             s = adder.add();
+            if (!kindHasDirectMapToIiidm()) {
+                addTypeAsProperty(s);
+            }
         } else {
             VoltageLevel.BusBreakerView.SwitchAdder adder = voltageLevel().getBusBreakerView().newSwitch();
             identify(adder);
             connect(adder, open);
             s = adder.add();
+            // Always preserve the original type, because all switches at bus/breaker view will be of kind "breaker"
+            addTypeAsProperty(s);
         }
         addAliasesAndProperties(s);
         return s;
@@ -93,20 +105,27 @@ public class SwitchConversion extends AbstractConductingEquipmentConversion impl
             convertToSwitch().setRetained(true);
         } else {
             warnDanglingLineCreated();
-            convertToDanglingLine(boundarySide);
+            String eqInstance = p.get("graph");
+            danglingLine = convertToDanglingLine(eqInstance, boundarySide);
         }
     }
 
     private SwitchKind kind() {
-        String type = p.getLocal("type").toLowerCase();
-        if (type.contains("breaker")) {
-            return SwitchKind.BREAKER;
-        } else if (type.contains("disconnector")) {
-            return SwitchKind.DISCONNECTOR;
-        } else if (type.contains("loadbreak")) {
-            return SwitchKind.LOAD_BREAK_SWITCH;
-        }
-        return SwitchKind.BREAKER;
+        String type = p.getLocal("type");
+        return switch (type) {
+            case "Disconnector", "GroundDisconnector", "Jumper" -> SwitchKind.DISCONNECTOR;
+            case "LoadBreakSwitch" -> SwitchKind.LOAD_BREAK_SWITCH;
+            default -> SwitchKind.BREAKER;  // Breaker, Switch, ProtectedSwitch
+        };
+    }
+
+    private boolean kindHasDirectMapToIiidm() {
+        String type = p.getLocal("type");
+        return type.equals("Breaker") || type.equals("Disconnector") || type.equals("LoadBreakSwitch");
+    }
+
+    private void addTypeAsProperty(Switch s) {
+        s.setProperty(Conversion.PROPERTY_CGMES_ORIGINAL_CLASS, p.getLocal("type"));
     }
 
     private void warnDanglingLineCreated() {

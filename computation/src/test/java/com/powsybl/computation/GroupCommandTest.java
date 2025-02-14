@@ -3,23 +3,25 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
 import com.google.common.collect.ImmutableList;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class GroupCommandTest {
+class GroupCommandTest {
 
     @Test
-    public void test() {
+    void test() {
         GroupCommand cmd1 = new GroupCommandBuilder()
                 .id("cmd1")
                 .inputFiles(new InputFile("file1"))
@@ -44,7 +46,7 @@ public class GroupCommandTest {
     }
 
     @Test
-    public void test2() {
+    void test2() {
         GroupCommand cmd1 = new GroupCommandBuilder()
                 .id("cmd1")
                 .subCommand()
@@ -57,35 +59,35 @@ public class GroupCommandTest {
         assertEquals(ImmutableList.of("arg1", "file1"), prg1.getArgs(1));
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorTimeout() {
-        new GroupCommandBuilder()
+    @Test
+    void testErrorTimeout() {
+        assertThrows(RuntimeException.class, () -> new GroupCommandBuilder()
                 .id("cmd1")
                 .subCommand()
                     .program("prg1")
                     .args()
                     .timeout(-10)
                 .add()
-                .build();
+                .build());
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorId() {
-        new GroupCommandBuilder()
+    @Test
+    void testErrorId() {
+        assertThrows(RuntimeException.class, () -> new GroupCommandBuilder()
                 .subCommand()
                     .program("prg1")
                     .args()
                 .add()
-                .build();
+                .build());
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testErrorProgram() {
-        new GroupCommandBuilder()
+    @Test
+    void testErrorProgram() {
+        assertThrows(RuntimeException.class, () -> new GroupCommandBuilder()
                 .id("cmd1")
                 .subCommand()
                     .args()
                 .add()
-                .build();
+                .build());
     }
 }

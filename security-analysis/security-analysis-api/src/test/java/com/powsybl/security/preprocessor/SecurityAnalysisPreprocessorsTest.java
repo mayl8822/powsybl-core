@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.preprocessor;
 
@@ -15,18 +16,18 @@ import com.powsybl.contingency.EmptyContingencyListProviderFactory;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.security.SecurityAnalysisConfig;
 import com.powsybl.security.SecurityAnalysisInput;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
-public class SecurityAnalysisPreprocessorsTest {
+class SecurityAnalysisPreprocessorsTest {
 
     @AutoService(SecurityAnalysisPreprocessorFactory.class)
     public static class TestPreprocessorFactory implements SecurityAnalysisPreprocessorFactory {
@@ -43,13 +44,13 @@ public class SecurityAnalysisPreprocessorsTest {
     }
 
     @Test
-    public void factoryForName() {
+    void factoryForName() {
         assertThat(SecurityAnalysisPreprocessors.factoryForName("test"))
                 .isInstanceOf(TestPreprocessorFactory.class);
     }
 
     @Test
-    public void contingenciesProviderPreprocessor() {
+    void contingenciesProviderPreprocessor() {
         ContingenciesProvider provider = Mockito.mock(ContingenciesProvider.class);
         ContingenciesProviderFactory providerFactory = () -> provider;
         SecurityAnalysisPreprocessorFactory factory = new ContingenciesProviderPreprocessorFactory(providerFactory);
@@ -64,7 +65,7 @@ public class SecurityAnalysisPreprocessorsTest {
     }
 
     @Test
-    public void configuredFactory() {
+    void configuredFactory() {
 
         Optional<SecurityAnalysisPreprocessorFactory> factory = SecurityAnalysisPreprocessors.configuredFactory(new SecurityAnalysisConfig("test"));
         assertThat(factory)
@@ -77,7 +78,7 @@ public class SecurityAnalysisPreprocessorsTest {
     }
 
     @Test
-    public void wrappedContingenciesProviderFactory() {
+    void wrappedContingenciesProviderFactory() {
 
         SecurityAnalysisPreprocessorFactory factory = SecurityAnalysisPreprocessors.wrap(new EmptyContingencyListProviderFactory());
         assertNotNull(factory);

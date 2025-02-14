@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.sensitivity;
 
@@ -10,7 +11,7 @@ import com.google.auto.service.AutoService;
 import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.extensions.Extension;
 import com.powsybl.commons.extensions.ExtensionJsonSerializer;
-import com.powsybl.commons.reporter.Reporter;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Network;
@@ -29,17 +30,17 @@ import java.util.stream.IntStream;
 public class SensitivityAnalysisProviderMock implements SensitivityAnalysisProvider {
 
     @Override
-    public CompletableFuture<Void> run(Network network, String workingVariantId, SensitivityFactorReader factorReader, SensitivityValueWriter valueWriter, List<Contingency> contingencies, List<SensitivityVariableSet> variableSets, SensitivityAnalysisParameters parameters, ComputationManager computationManager, Reporter reporter) {
+    public CompletableFuture<Void> run(Network network, String workingVariantId, SensitivityFactorReader factorReader, SensitivityResultWriter resultWriter, List<Contingency> contingencies, List<SensitivityVariableSet> variableSets, SensitivityAnalysisParameters parameters, ComputationManager computationManager, ReportNode reportNode) {
         int[] factorIndex = new int[1];
         factorReader.read((functionType, functionId, variableType, variableId, variableSet, contingencyContext) -> {
             switch (contingencyContext.getContextType()) {
                 case NONE:
-                    valueWriter.write(factorIndex[0]++, -1, 0.0, 0.0);
+                    resultWriter.writeSensitivityValue(factorIndex[0]++, -1, 0.0, 0.0);
                     break;
 
                 case ALL:
                     for (int contingencyIndex = 0; contingencyIndex < contingencies.size(); contingencyIndex++) {
-                        valueWriter.write(factorIndex[0]++, contingencyIndex, 0.0, 0.0);
+                        resultWriter.writeSensitivityValue(factorIndex[0]++, contingencyIndex, 0.0, 0.0);
                     }
                     break;
 
@@ -48,10 +49,13 @@ public class SensitivityAnalysisProviderMock implements SensitivityAnalysisProvi
                             .filter(i -> contingencies.get(i).getId().equals(contingencyContext.getContingencyId()))
                             .findFirst()
                             .orElseThrow();
-                    valueWriter.write(factorIndex[0]++, contingencyIndex, 0.0, 0.0);
+                    resultWriter.writeSensitivityValue(factorIndex[0]++, contingencyIndex, 0.0, 0.0);
                     break;
             }
         });
+        for (int contingencyIndex = 0; contingencyIndex < contingencies.size(); contingencyIndex++) {
+            resultWriter.writeContingencyStatus(contingencyIndex, SensitivityAnalysisResult.Status.SUCCESS);
+        }
         return CompletableFuture.completedFuture(null);
     }
 

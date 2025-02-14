@@ -3,20 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.test.network.compare;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.powsybl.iidm.network.Identifiable;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public class DifferencesFail implements Differences {
 
@@ -32,12 +33,12 @@ public class DifferencesFail implements Differences {
 
     @Override
     public void compare(String context, double expected, double actual, double tolerance) {
-        assertEquals(completeContext(context), expected, actual, tolerance);
+        assertEquals(expected, actual, tolerance, completeContext(context));
     }
 
     @Override
     public void compare(String context, Object expected, Object actual) {
-        assertEquals(completeContext(context), expected, actual);
+        assertEquals(expected, actual, completeContext(context));
     }
 
     @Override

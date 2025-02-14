@@ -15,7 +15,7 @@
     <parent>
         <artifactId>powsybl-core</artifactId>
         <groupId>com.powsybl</groupId>
-        <version>4.10.0-SNAPSHOT</version>
+        <version>6.7.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>powsybl-tools</artifactId>
@@ -42,13 +42,6 @@
                         </manifestEntries>
                     </archive>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>test-jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
@@ -68,24 +61,19 @@
             <artifactId>commons-cli</artifactId>
         </dependency>
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>powsybl-computation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.antlr</groupId>
-            <artifactId>stringtemplate</artifactId>
+            <artifactId>ST4</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
         <dependency>
-            <groupId>com.powsybl</groupId>
-            <artifactId>powsybl-commons</artifactId>
-            <type>test-jar</type>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>powsybl-commons-test</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -95,8 +83,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

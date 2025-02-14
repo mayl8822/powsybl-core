@@ -3,45 +3,36 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
 import com.google.common.collect.ImmutableList;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
-@RunWith(Parameterized.class)
-public class CompletableFutureTaskTest {
-
-    private final Executor executor;
-
-    public CompletableFutureTaskTest(Executor executor) {
-        this.executor = executor;
-    }
+class CompletableFutureTaskTest {
 
     /**
      * Check the behaviour is the same with different types of executors.
      * In particular, {@link ThreadPoolExecutor} and {@link ForkJoinPool}
      * have some behaviour discrepancies, which should be hidden by our implementation.
      */
-    @Parameterized.Parameters
-    public static Collection<Object[]> parameters() {
+    static Stream<Arguments> parameters() {
         return executors().stream()
-                .map(e -> new Object[] {e})
-                .collect(Collectors.toList());
+                .map(Arguments::of);
     }
 
     private static List<Executor> executors() {
@@ -49,12 +40,42 @@ public class CompletableFutureTaskTest {
                 Executors.newSingleThreadExecutor(),
                 Executors.newCachedThreadPool(),
                 Executors.newWorkStealingPool(),
+                new MyTestExecutorWithException(),
                 ForkJoinPool.commonPool()
         );
     }
 
-    @Test
-    public void whenSupplyObjectThenReturnIt() throws Exception {
+    // Very basic executor that spawns a new thread
+    // and allows to wait for the end of the command.
+    // It just keeps an exception to be able to assert it.
+    // You should use it to launch only one command
+    // because it has just one latch and one exception
+    private static class MyTestExecutorWithException implements Executor {
+
+        Exception exception = null;
+        CountDownLatch waitForDone;
+
+        @Override
+        public void execute(Runnable command) {
+            (new Thread() {
+                @Override
+                public void run() {
+                    waitForDone = new CountDownLatch(1);
+                    try {
+                        command.run();
+                    } catch (Exception e) {
+                        MyTestExecutorWithException.this.exception = e;
+                    } finally {
+                        waitForDone.countDown();
+                    }
+                }
+            }).start();
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void whenSupplyObjectThenReturnIt(Executor executor) throws Exception {
 
         Object res = new Object();
         CompletableFutureTask<Object> task = CompletableFutureTask.runAsync(() -> res, executor);
@@ -64,8 +85,9 @@ public class CompletableFutureTaskTest {
     private static class MyException extends RuntimeException {
     }
 
-    @Test
-    public void whenTaskThrowsThenThrowExecutionException() throws InterruptedException {
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void whenTaskThrowsThenThrowExecutionException(Executor executor) throws InterruptedException {
 
         CompletableFutureTask<Integer> task = CompletableFutureTask.runAsync(() -> {
             throw new MyException();
@@ -79,8 +101,9 @@ public class CompletableFutureTaskTest {
         }
     }
 
-    @Test(expected = CancellationException.class)
-    public void whenCancelBeforeExecutionThenThrowAndDontExecute() throws Exception {
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void whenCancelBeforeExecutionThenThrowAndDontExecute(Executor executor) throws Exception {
 
         CompletableFutureTask<Integer> task = new CompletableFutureTask<>(() -> {
             fail();
@@ -89,10 +112,10 @@ public class CompletableFutureTaskTest {
         boolean cancelled = task.cancel(true);
         assertTrue(cancelled);
         task.runAsync(executor);
-        task.get();
+        assertThrows(CancellationException.class, task::get);
     }
 
-    private void testEffectiveInterrupt(boolean addDependant) throws Exception {
+    private void testEffectiveInterrupt(boolean addDependant, Executor executor) throws Exception {
         CountDownLatch waitForStart = new CountDownLatch(1);
         CountDownLatch waitIndefinitely = new CountDownLatch(1);
         CountDownLatch waitForInterruption = new CountDownLatch(1);
@@ -131,20 +154,27 @@ public class CompletableFutureTaskTest {
         //Second call to cancel should return false
         cancelled = task.cancel(true);
         assertFalse(cancelled);
+        if (executor instanceof MyTestExecutorWithException myTestExecutor) {
+            myTestExecutor.waitForDone.await();
+            assertNull(myTestExecutor.exception);
+        }
     }
 
-    @Test
-    public void whenCancelDuringExecutionThenThrowAndInterruptDirect() throws Exception {
-        testEffectiveInterrupt(false);
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void whenCancelDuringExecutionThenThrowAndInterruptDirect(Executor executor) throws Exception {
+        testEffectiveInterrupt(false, executor);
     }
 
-    @Test
-    public void whenCancelDuringExecutionThenThrowAndInterruptDependant() throws Exception {
-        testEffectiveInterrupt(true);
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void whenCancelDuringExecutionThenThrowAndInterruptDependant(Executor executor) throws Exception {
+        testEffectiveInterrupt(true, executor);
     }
 
-    @Test
-    public void cancelAfterExecutionShouldDoNothing() throws Exception {
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void cancelAfterExecutionShouldDoNothing(Executor executor) throws Exception {
 
         Object res = new Object();
         CompletableFutureTask<Object> task = CompletableFutureTask.runAsync(() -> res, executor);

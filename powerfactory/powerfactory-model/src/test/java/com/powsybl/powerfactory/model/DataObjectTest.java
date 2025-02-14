@@ -3,11 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.powerfactory.model;
 
 import org.apache.commons.math3.linear.BlockRealMatrix;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,12 +16,12 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class DataObjectTest {
+class DataObjectTest {
 
     private static DataClass createFooClass() {
         return DataClass.init("ElmFoo")
@@ -35,7 +36,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testClass() {
+    void testClass() {
         DataClass clsFoo = createFooClass();
         assertEquals("ElmFoo", clsFoo.getName());
         assertEquals("DataClass(name=ElmFoo)", clsFoo.toString());
@@ -48,7 +49,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testObj() throws IOException {
+    void testObj() throws IOException {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index)
@@ -87,7 +88,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testStringAttribute() {
+    void testStringAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -106,7 +107,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testIntAttribute() {
+    void testIntAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -121,7 +122,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testLongAttribute() {
+    void testLongAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -135,7 +136,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testFloatAttribute() {
+    void testFloatAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -149,7 +150,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testDoubleAttribute() {
+    void testDoubleAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -164,7 +165,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testIntVectorAttribute() {
+    void testIntVectorAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -178,7 +179,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testFloatVectorAttribute() {
+    void testFloatVectorAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -192,7 +193,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testDoubleVectorAttribute() {
+    void testDoubleVectorAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);
@@ -206,7 +207,7 @@ public class DataObjectTest {
     }
 
     @Test
-    public void testMatrixVectorAttribute() {
+    void testMatrixVectorAttribute() {
         DataObjectIndex index = new DataObjectIndex();
         DataClass clsFoo = createFooClass();
         DataObject objFoo = new DataObject(0L, clsFoo, index);

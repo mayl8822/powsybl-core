@@ -3,25 +3,27 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.config;
 
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.commons.io.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.function.Supplier;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public class PlatformConfig {
 
@@ -32,14 +34,6 @@ public class PlatformConfig {
     protected final Path configDir;
 
     protected final Supplier<ModuleConfigRepository> repositorySupplier;
-
-    /**
-     * @deprecated Directly pass <code>PlatformConfig</code> instance to the code you want to test.
-     */
-    @Deprecated
-    public static synchronized void setDefaultConfig(PlatformConfig defaultConfig) {
-        PlatformConfig.defaultConfig = defaultConfig;
-    }
 
     /**
      * Loads a {@link ModuleConfigRepository} from a single directory.
@@ -86,8 +80,9 @@ public class PlatformConfig {
     }
 
     protected PlatformConfig(Supplier<ModuleConfigRepository> repositorySupplier, Path configDir) {
-        this.repositorySupplier = Suppliers.memoize(Objects.requireNonNull(repositorySupplier));
-        this.configDir = configDir != null ? FileUtil.createDirectory(configDir) : null;
+        Objects.requireNonNull(repositorySupplier);
+        this.repositorySupplier = Suppliers.memoize(repositorySupplier::get);
+        this.configDir = configDir;
     }
 
     public Optional<Path> getConfigDir() {
@@ -98,27 +93,11 @@ public class PlatformConfig {
         return Objects.requireNonNull(repositorySupplier.get());
     }
 
-    /**
-     * @deprecated Use the <code>Optional</code> returned by {@link #getOptionalModuleConfig(String)}
-     */
-    @Deprecated
-    public boolean moduleExists(String name) {
-        return getOptionalModuleConfig(name).isPresent();
-    }
-
-    /**
-     * @deprecated Use {@link #getOptionalModuleConfig(String)} instead
-     */
-    @Deprecated
-    public ModuleConfig getModuleConfig(String name) {
-        return getRepository().getModuleConfig(name).orElseThrow(() -> new PowsyblException("Module " + name + " not found"));
-    }
-
     public Optional<ModuleConfig> getOptionalModuleConfig(String name) {
         return getRepository().getModuleConfig(name);
     }
 
-    private static class EmptyModuleConfigRepository implements ModuleConfigRepository {
+    private static final class EmptyModuleConfigRepository implements ModuleConfigRepository {
         @Override
         public Optional<ModuleConfig> getModuleConfig(String name) {
             return Optional.empty();

@@ -3,14 +3,15 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.datasource;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,31 +20,31 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class DataSourceObserverTest {
+class DataSourceObserverTest {
 
     private FileSystem fileSystem;
 
     protected Path testDir;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         testDir = fileSystem.getPath("/tmp");
         Files.createDirectories(testDir);
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         fileSystem.close();
     }
 
     @Test
-    public void test() throws IOException {
+    void test() throws IOException {
         String[] openedStream = new String[1];
         String[] closedStream = new String[1];
         DataSourceObserver observer = new DataSourceObserver() {
@@ -58,7 +59,7 @@ public class DataSourceObserverTest {
             }
         };
 
-        DataSource dataSource = new FileDataSource(testDir, "test", observer);
+        DataSource dataSource = new DirectoryDataSource(testDir, "test", observer);
 
         try (OutputStream os = dataSource.newOutputStream(null, "txt", false)) {
         }

@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.sensitivity;
 
@@ -20,7 +21,7 @@ import java.util.Objects;
  * a pre-contingency value). The value is the impact of the variable change on the monitored equipment. The function
  * reference gives the level of the function in the network pre-contingency state.
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  * @see SensitivityFactor
  */
 public class SensitivityValue {
@@ -79,7 +80,7 @@ public class SensitivityValue {
 
     static final class ParsingContext {
         private int factorIndex;
-        private int contingencyIndex;
+        private int contingencyIndex = -1;
         private double value;
         private double functionReference;
     }
@@ -104,7 +105,7 @@ public class SensitivityValue {
     }
 
     private static void parseJson(JsonParser parser, ParsingContext context) throws IOException {
-        String fieldName = parser.getCurrentName();
+        String fieldName = parser.currentName();
         switch (fieldName) {
             case "factorIndex":
                 parser.nextToken();

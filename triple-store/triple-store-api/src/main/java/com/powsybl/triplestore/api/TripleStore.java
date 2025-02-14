@@ -3,9 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.triplestore.api;
+
+import com.powsybl.commons.datasource.DataSource;
 
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -13,17 +16,23 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import com.powsybl.commons.datasource.DataSource;
-
 /**
  * A Triplestore database.
  * A Triplestore database is a database for the storage and retrieval of triples.
  * A triple is a data entity composed of subject-predicate-object.
  * Adding a name to a triple allows to separate them in contexts or named graphs.
  *
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public interface TripleStore {
+
+    /**
+     * Obtain the options that have been used to configure this Triplestore
+     * @return options Triplestore configuration options
+     */
+    default TripleStoreOptions getOptions() {
+        return null;
+    }
 
     /**
      * Read statements from an input stream and store them in the Triplestore under the given context name.
@@ -131,7 +140,7 @@ public interface TripleStore {
       /**
      * Perform a SPARQL update on the Triplestore.
      *
-     * @param query the text of the query, written in SPARQL Update language
+     * @param queryText the text of the query, written in SPARQL Update language
      */
     void update(String queryText);
 

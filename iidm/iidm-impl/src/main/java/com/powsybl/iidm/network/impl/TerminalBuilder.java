@@ -3,16 +3,20 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
-import com.powsybl.iidm.network.impl.util.Ref;
+import com.powsybl.iidm.network.ThreeSides;
+import com.powsybl.commons.ref.Ref;
 import com.powsybl.iidm.network.Validable;
 import com.powsybl.iidm.network.ValidationException;
 
+import java.util.Objects;
+
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 class TerminalBuilder {
 
@@ -20,15 +24,18 @@ class TerminalBuilder {
 
     private final Validable validable;
 
+    private ThreeSides side;
+
     private Integer node;
 
     private String bus;
 
     private String connectableBus;
 
-    TerminalBuilder(Ref<? extends VariantManagerHolder> network, Validable validable) {
-        this.network = network;
-        this.validable = validable;
+    TerminalBuilder(Ref<? extends VariantManagerHolder> network, Validable validable, ThreeSides side) {
+        this.network = Objects.requireNonNull(network);
+        this.validable = Objects.requireNonNull(validable);
+        this.side = side;
     }
 
     TerminalBuilder setBus(String bus) {
@@ -58,15 +65,15 @@ class TerminalBuilder {
                 throw new ValidationException(validable, "connectable bus is not set");
             }
 
-            return new BusTerminal(network, connectionBus, bus != null);
+            return new BusTerminal(network, side, connectionBus, bus != null);
         } else {
-            return new NodeTerminal(network, node);
+            return new NodeTerminal(network, side, node);
         }
     }
 
     private String getConnectionBus() {
         if (bus != null) {
-            if ((connectableBus != null) && (!bus.equals(connectableBus))) {
+            if (connectableBus != null && !bus.equals(connectableBus)) {
                 throw new ValidationException(validable, "connection bus is different to connectable bus");
             }
 

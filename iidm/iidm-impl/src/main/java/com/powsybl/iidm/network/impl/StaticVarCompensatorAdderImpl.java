@@ -3,19 +3,21 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
-import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.StaticVarCompensator;
+import com.powsybl.iidm.network.StaticVarCompensatorAdder;
+import com.powsybl.iidm.network.Terminal;
+import com.powsybl.iidm.network.ValidationUtil;
 
 import java.util.Objects;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 class StaticVarCompensatorAdderImpl extends AbstractInjectionAdder<StaticVarCompensatorAdderImpl> implements StaticVarCompensatorAdder {
-
-    private final VoltageLevelExt vl;
 
     private double bMin = Double.NaN;
 
@@ -30,12 +32,7 @@ class StaticVarCompensatorAdderImpl extends AbstractInjectionAdder<StaticVarComp
     private TerminalExt regulatingTerminal;
 
     StaticVarCompensatorAdderImpl(VoltageLevelExt vl) {
-        this.vl = Objects.requireNonNull(vl);
-    }
-
-    @Override
-    protected NetworkImpl getNetwork() {
-        return vl.getNetwork();
+        this.voltageLevel = Objects.requireNonNull(vl);
     }
 
     @Override
@@ -88,12 +85,12 @@ class StaticVarCompensatorAdderImpl extends AbstractInjectionAdder<StaticVarComp
         ValidationUtil.checkBmin(this, bMin);
         ValidationUtil.checkBmax(this, bMax);
         ValidationUtil.checkRegulatingTerminal(this, regulatingTerminal, network);
-        network.setValidationLevelIfGreaterThan(ValidationUtil.checkSvcRegulator(this, voltageSetpoint, reactivePowerSetpoint, regulationMode, network.getMinValidationLevel()));
+        network.setValidationLevelIfGreaterThan(ValidationUtil.checkSvcRegulator(this, voltageSetpoint, reactivePowerSetpoint, regulationMode,
+                network.getMinValidationLevel(), network.getReportNodeContext().getReportNode()));
         StaticVarCompensatorImpl svc = new StaticVarCompensatorImpl(id, name, isFictitious(), bMin, bMax, voltageSetpoint, reactivePowerSetpoint,
-                regulationMode, regulatingTerminal != null ? regulatingTerminal : terminal,
-                network.getRef());
+                regulationMode, regulatingTerminal, getNetworkRef());
         svc.addTerminal(terminal);
-        vl.attach(terminal, false);
+        voltageLevel.getTopologyModel().attach(terminal, false);
         network.getIndex().checkAndAdd(svc);
         network.getListeners().notifyCreation(svc);
         return svc;

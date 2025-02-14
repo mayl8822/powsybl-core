@@ -3,17 +3,17 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements.transformers;
 
-import java.util.Objects;
-
-import org.apache.commons.math3.complex.Complex;
-
 import com.powsybl.cgmes.conversion.Context;
 import com.powsybl.cgmes.conversion.elements.transformers.TapChanger.Step;
 import com.powsybl.cgmes.model.CgmesModelException;
+import org.apache.commons.math3.complex.Complex;
+
+import java.util.Objects;
 
 /**
  * TapChangerTypes
@@ -40,8 +40,8 @@ import com.powsybl.cgmes.model.CgmesModelException;
  * When tapChanger is moved the transmission impedance and shunt admittance corrections are managed as step correction
  * expressed as percentage deviation of nominal value.
  * <p>
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 public class TapChangerConversion {
 
@@ -136,7 +136,7 @@ public class TapChangerConversion {
     */
     private TapChanger tapChangerFixPosition(TapChanger tc) {
         if (tc.getLowTapPosition() != tc.getHighTapPosition()) {
-            context.fixed(() -> String.format("TapChanger Id %s fixed tap at position %d ", tc.getId(), tc.getTapPosition()), "");
+            context.fixed("TapChanger", () -> String.format("%s fixed tap at position %d ", tc.getId(), tc.getTapPosition()));
         }
         TapChanger tapChanger = baseCloneTapChanger(tc);
         tapChanger.setLowTapPosition(tapChanger.getTapPosition());
@@ -239,7 +239,7 @@ public class TapChangerConversion {
     }
 
     // not used at the moment
-    protected static TapChanger  moveTapChangerFrom1To2(TapChanger tc) {
+    protected static TapChanger moveTapChangerFrom1To2(TapChanger tc) {
         return moveTapChangerFromOneEndToTheOther(tc);
     }
 

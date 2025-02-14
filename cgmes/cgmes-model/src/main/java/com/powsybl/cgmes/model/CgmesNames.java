@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.model;
@@ -10,7 +11,7 @@ package com.powsybl.cgmes.model;
 import java.util.Set;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public final class CgmesNames {
 
@@ -76,6 +77,7 @@ public final class CgmesNames {
     public static final String RATIO_TAP_CHANGER = "RatioTapChanger";
     public static final String PHASE_TAP_CHANGER = "PhaseTapChanger";
     public static final String RATEDU = "ratedU";
+    public static final String RATEDS = "ratedS";
     public static final String G = "g";
     public static final String B = "b";
     public static final String PHASE_ANGLE_CLOCK = "phaseAngleClock";
@@ -104,6 +106,44 @@ public final class CgmesNames {
     public static final String PHASE_TAP_CHANGER_TABULAR = "PhaseTapChangerTabular";
 
     public static final Set<String> SWITCH_TYPES = Set.of(SWITCH, "Breaker", "Disconnector", "LoadBreakSwitch", "ProtectedSwitch", "GroundDisconnector");
+
+    public static final String BUSBAR_SECTION = "BusbarSection";
+    public static final String GROUND = "Ground";
+    public static final String SHUNT_COMPENSATOR = "ShuntCompensator";
+    public static final String EQUIVALENT_SHUNT = "EquivalentShunt";
+    public static final String EQUIVALENT_BRANCH = "EquivalentBranch";
+    public static final String STATIC_VAR_COMPENSATOR = "StaticVarCompensator";
+    public static final String REGULATING_CONTROL = "RegulatingControl";
+    public static final String CONTROL_AREA = "ControlArea";
+    public static final String CONFORM_LOAD = "ConformLoad";
+    public static final String NONCONFORM_LOAD = "NonConformLoad";
+    public static final String ENERGY_CONSUMER = "EnergyConsumer";
+    public static final String STATION_SUPPLY = "StationSupply";
+    public static final String ASYNCHRONOUS_MACHINE = "AsynchronousMachine";
+    public static final String SYNCHRONOUS_MACHINE = "SynchronousMachine";
+    public static final String ENERGY_SOURCE = "EnergySource";
+    public static final String SV_INJECTION = "SvInjection";
+    public static final String CONFORM_LOAD_GROUP = "ConformLoadGroup";
+    public static final String NONCONFORM_LOAD_GROUP = "NonConformLoadGroup";
+    public static final String ACDC_CONVERTER = "ACDCConverter";
+    public static final String DC_LINE_SEGMENT = "DCLineSegment";
+
+    public static final String CONNECTIVITY_NODE_BOUNDARY = "ConnectivityNode_Boundary";
+    public static final String TOPOLOGICAL_NODE_BOUNDARY = "TopologicalNode_Boundary";
+    public static final String GENERATOR_OR_MOTOR = "generatorOrMotor";
+
+    public static final String CONNECTIVITY_NODE_CONTAINER = "ConnectivityNodeContainer";
+    public static final String IDENTIFIED_OBJECT_DESCRIPTION = "IdentifiedObject.description";
+
+    public static final String EQUIVALENT_INJECTION = "EquivalentInjection";
+    public static final String EQUIVALENT_INJECTION_TERMINAL = "EquivalentInjectionTerminal";
+    public static final String EXTERNAL_NETWORK_INJECTION = "ExternalNetworkInjection";
+
+    public static final String OPERATIONAL_LIMIT = "OperationalLimit";
+    public static final String OPERATIONAL_LIMIT_SET = "OperationalLimitSet";
+    public static final String CURRENT_LIMIT = "CurrentLimit";
+    public static final String ACTIVE_POWER_LIMIT = "ActivePowerLimit";
+    public static final String APPARENT_POWER_LIMIT = "ApparentPowerLimit";
 
     private CgmesNames() {
     }

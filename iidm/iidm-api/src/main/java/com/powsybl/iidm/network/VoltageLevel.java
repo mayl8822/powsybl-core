@@ -3,9 +3,11 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network;
 
+import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.util.ShortIdDictionary;
 import com.powsybl.math.graph.TraverseResult;
 
@@ -14,6 +16,7 @@ import java.io.PrintStream;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -141,6 +144,14 @@ import java.util.stream.Stream;
  *             <td style="border: 1px solid black">yes</td>
  *             <td style="border: 1px solid black"> - </td>
  *             <td style="border: 1px solid black">The kind of topology</td>
+ *         </tr>
+ *         <tr>
+ *             <td style="border: 1px solid black">Areas</td>
+ *             <td style="border: 1px solid black">Set of Areas</td>
+ *             <td style="border: 1px solid black">-</td>
+ *             <td style="border: 1px solid black">no</td>
+ *             <td style="border: 1px solid black"> - </td>
+ *             <td style="border: 1px solid black">List of Areas it belongs to (at most one area for each area type)</td>
  *         </tr>
  *     </tbody>
  * </table>
@@ -381,7 +392,7 @@ import java.util.stream.Stream;
  *
  * <p>To create a voltage level, see {@link VoltageLevelAdder}
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  * @see VoltageLevelAdder
  */
 public interface VoltageLevel extends Container<VoltageLevel> {
@@ -409,7 +420,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
             return this;
         }
 
-        interface SwitchAdder extends IdentifiableAdder<SwitchAdder> {
+        interface SwitchAdder extends IdentifiableAdder<Switch, SwitchAdder> {
 
             SwitchAdder setNode1(int node1);
 
@@ -423,6 +434,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
 
             SwitchAdder setRetained(boolean retained);
 
+            @Override
             Switch add();
         }
 
@@ -443,16 +455,6 @@ public interface VoltageLevel extends Container<VoltageLevel> {
         }
 
         /**
-         * Get the count of used nodes (nodes attached to an equipment, a switch or an internal connection).
-         *
-         * @deprecated Use {@link #getMaximumNodeIndex()} instead.
-         */
-        @Deprecated
-        default int getNodeCount() {
-            throw new UnsupportedOperationException();
-        }
-
-        /**
          * Get the highest index of used nodes (i.e. attached to an equipment, a switch or an internal connection) in the voltage level.
          */
         default int getMaximumNodeIndex() {
@@ -470,7 +472,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
         SwitchAdder newSwitch();
 
         /**
-         * Get a builder to create a new switch.
+         * Get a builder to create a new internal connection.
          */
         InternalConnectionAdder newInternalConnection();
 
@@ -683,7 +685,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
      */
     interface BusBreakerView {
 
-        interface SwitchAdder extends IdentifiableAdder<SwitchAdder> {
+        interface SwitchAdder extends IdentifiableAdder<Switch, SwitchAdder> {
 
             SwitchAdder setBus1(String bus1);
 
@@ -691,6 +693,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
 
             SwitchAdder setOpen(boolean open);
 
+            @Override
             Switch add();
 
         }
@@ -712,6 +715,15 @@ public interface VoltageLevel extends Container<VoltageLevel> {
          * @see VariantManager
          */
         Stream<Bus> getBusStream();
+
+        /**
+         * Get the bus count.
+         * <p>
+         * Depends on the working variant if topology kind is NODE_BREAKER.
+         *
+         * @see VariantManager
+         */
+        int getBusCount();
 
         /**
          * Get a bus.
@@ -793,6 +805,29 @@ public interface VoltageLevel extends Container<VoltageLevel> {
         Bus getBus2(String switchId);
 
         /**
+         * Get buses of the current view (bus-breaker) contained in the given bus-view bus. If the given bus-view bus does not exist, throw an exception.
+         */
+        default Collection<Bus> getBusesFromBusViewBusId(String mergedBusId) {
+            return getBusStreamFromBusViewBusId(mergedBusId).collect(Collectors.toSet());
+        }
+
+        /**
+         * Get a stream of buses of the current view (bus-breaker) contained in the given bus-view bus. If the given bus-view bus does not exist, throw an exception.
+         */
+        default Stream<Bus> getBusStreamFromBusViewBusId(String mergedBusId) {
+            VoltageLevel vl = getBusStream()
+                    .flatMap(Bus::getConnectedTerminalStream)
+                    .map(Terminal::getVoltageLevel)
+                    .findFirst()
+                    .orElseThrow(() -> new PowsyblException("No connected bus is found"));
+            Bus mergedBus = vl.getBusView().getBus(mergedBusId);
+            if (mergedBus == null) {
+                throw new PowsyblException("Bus " + mergedBusId + " is not found in Bus-branch view of voltage level " + vl.getId());
+            }
+            return mergedBus.getConnectedTerminalStream().map(t -> t.getBusBreakerView().getBus()).distinct();
+        }
+
+        /**
          * Get a switch.
          *
          * @param switchId the id of the switch
@@ -801,7 +836,7 @@ public interface VoltageLevel extends Container<VoltageLevel> {
         Switch getSwitch(String switchId);
 
         /**
-         * Get a builer to create a new switch.
+         * Get a builder to create a new switch.
          *
          * @throws com.powsybl.commons.PowsyblException if the topology kind is NODE_BREAKER
          */
@@ -869,6 +904,43 @@ public interface VoltageLevel extends Container<VoltageLevel> {
     }
 
     Optional<Substation> getSubstation();
+
+    /**
+     * Get an iterable on all the Areas that this voltage level belongs to.
+     *
+     * @return all the areas
+     */
+    Iterable<Area> getAreas();
+
+    /**
+     * Get a stream on all the Areas that this voltage level belongs to.
+     *
+     * @return all the areas
+     */
+    Stream<Area> getAreasStream();
+
+    /**
+     * Get the Area that this voltage level belongs to for a given area type.
+     *
+     * @param areaType the area type
+     * @return the optional area or empty if not found
+     */
+    Optional<Area> getArea(String areaType);
+
+    /**
+     * Add the voltage level to an area.
+     *
+     * @param area the area
+     * @throws PowsyblException if the area is in another network or if the voltage level already belongs to an area of the same type
+     */
+    void addArea(Area area);
+
+    /**
+     * Remove the voltage level from an area.
+     *
+     * @param area the area
+     */
+    void removeArea(Area area);
 
     default Substation getNullableSubstation() {
         return getSubstation().orElse(null);
@@ -1056,14 +1128,28 @@ public interface VoltageLevel extends Container<VoltageLevel> {
     DanglingLineAdder newDanglingLine();
 
     /**
-     * Get dangling lines.
+     * Get the dangling lines in this voltage level which correspond to given filter.
      */
-    Iterable<DanglingLine> getDanglingLines();
+    Iterable<DanglingLine> getDanglingLines(DanglingLineFilter danglingLineFilter);
 
     /**
-     * Get dangling lines.
+     * Get all dangling lines in this voltage level.
      */
-    Stream<DanglingLine> getDanglingLineStream();
+    default Iterable<DanglingLine> getDanglingLines() {
+        return getDanglingLines(DanglingLineFilter.ALL);
+    }
+
+    /**
+     * Get the dangling lines in this voltage level which correspond to given filter.
+     */
+    Stream<DanglingLine> getDanglingLineStream(DanglingLineFilter danglingLineFilter);
+
+   /**
+     * Get all dangling lines in this voltage level.
+     */
+    default Stream<DanglingLine> getDanglingLineStream() {
+        return getDanglingLineStream(DanglingLineFilter.ALL);
+    }
 
     /**
      * Get dangling line count.
@@ -1210,6 +1296,26 @@ public interface VoltageLevel extends Container<VoltageLevel> {
     int getThreeWindingsTransformerCount();
 
     /**
+     * Get a builder to create a new ground.
+     */
+    GroundAdder newGround();
+
+    /**
+     * Get grounds.
+     */
+    Iterable<Ground> getGrounds();
+
+    /**
+     * Get grounds.
+     */
+    Stream<Ground> getGroundStream();
+
+    /**
+     * Get ground count.
+     */
+    int getGroundCount();
+
+    /**
      * Remove this voltage level from the network.
      */
     default void remove() {
@@ -1248,6 +1354,15 @@ public interface VoltageLevel extends Container<VoltageLevel> {
      * @return a bus view of the topology
      */
     BusView getBusView();
+
+    /**
+     * Convert the topology model to another one. Notice that when converting from a
+     * node/breaker model to a bus/breaker model, we definitely lost some information as
+     * we are converting to a simpler topology model.
+     *
+     * @param newTopologyKind the new topology model kind
+     */
+    void convertToTopology(TopologyKind newTopologyKind);
 
     /**
      * Print an ASCII representation of the topology on the standard ouput.

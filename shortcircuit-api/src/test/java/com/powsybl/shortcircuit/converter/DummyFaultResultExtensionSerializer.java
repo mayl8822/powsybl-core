@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.shortcircuit.converter;
 
@@ -14,14 +15,15 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.auto.service.AutoService;
 import com.powsybl.commons.extensions.ExtensionJsonSerializer;
 import com.powsybl.shortcircuit.FaultResult;
+import com.powsybl.shortcircuit.TestingResultFactory;
 
 import java.io.IOException;
 
 /**
- * @author Teofil-Calin BANC <teofil-calin.banc at rte-france.com>
+ * @author Teofil-Calin BANC {@literal <teofil-calin.banc at rte-france.com>}
  */
 @AutoService(ExtensionJsonSerializer.class)
-public class DummyFaultResultExtensionSerializer implements ExtensionJsonSerializer<FaultResult, ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension> {
+public class DummyFaultResultExtensionSerializer implements ExtensionJsonSerializer<FaultResult, TestingResultFactory.DummyFaultResultExtension> {
 
     @Override
     public String getExtensionName() {
@@ -34,21 +36,21 @@ public class DummyFaultResultExtensionSerializer implements ExtensionJsonSeriali
     }
 
     @Override
-    public Class<? super ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension> getExtensionClass() {
-        return ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension.class;
+    public Class<? super TestingResultFactory.DummyFaultResultExtension> getExtensionClass() {
+        return TestingResultFactory.DummyFaultResultExtension.class;
     }
 
     @Override
-    public void serialize(ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension extension, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+    public void serialize(TestingResultFactory.DummyFaultResultExtension extension, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
         jsonGenerator.writeStartObject();
         jsonGenerator.writeEndObject();
     }
 
     @Override
-    public ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension deserialize(JsonParser parser, DeserializationContext deserializationContext) throws IOException {
+    public TestingResultFactory.DummyFaultResultExtension deserialize(JsonParser parser, DeserializationContext deserializationContext) throws IOException {
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             continue;
         }
-        return new ShortCircuitAnalysisResultExportersTest.DummyFaultResultExtension();
+        return new TestingResultFactory.DummyFaultResultExtension();
     }
 }

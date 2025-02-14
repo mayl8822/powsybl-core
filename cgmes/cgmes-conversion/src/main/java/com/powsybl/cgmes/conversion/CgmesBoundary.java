@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion;
@@ -18,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 
 public class CgmesBoundary {
@@ -29,11 +30,13 @@ public class CgmesBoundary {
     public CgmesBoundary(CgmesModel cgmes) {
         PropertyBags bns = cgmes.boundaryNodes();
         nodesName = new HashMap<>();
+        topologicalNodes = new HashMap<>();
+        connectivityNodes = new HashMap<>();
         lineAtNodes = new HashMap<>();
         hvdcNodes = new HashSet<>();
         if (bns != null) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("{}{}{}",
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("{}{}{}",
                         "CgmesBoundary nodes",
                         System.lineSeparator(),
                         bns.tabulateLocals());
@@ -46,7 +49,10 @@ public class CgmesBoundary {
                 nodes.add(cn);
                 nodes.add(tn);
                 nodesName.put(cn, node.get("name"));
-                nodesName.put(tn, node.get("topologicalNodeName"));
+                String tnName = node.get("topologicalNodeName");
+                nodesName.put(tn, tnName);
+                topologicalNodes.put(tnName, tn);
+                connectivityNodes.put(tnName, cn);
                 if (node.containsKey("description") && node.getId("description").startsWith("HVDC")) {
                     hvdcNodes.add(cn);
                     hvdcNodes.add(tn);
@@ -78,18 +84,6 @@ public class CgmesBoundary {
 
     public PowerFlow powerFlowAtNode(String node) {
         return nodesPowerFlow.get(node);
-    }
-
-    /**
-     * @deprecated Not used anymore. To set an equipment at boundary node, use
-     * {@link CgmesBoundary#addAcLineSegmentAtNode(PropertyBag, String)} or
-     * {@link CgmesBoundary#addSwitchAtNode(PropertyBag, String)} or
-     * {@link CgmesBoundary#addTransformerAtNode(PropertyBags, String)} or
-     * {@link CgmesBoundary#addEquivalentBranchAtNode(PropertyBag, String)}  instead.
-     */
-    @Deprecated
-    public void addEquipmentAtNode(PropertyBag line, String node) {
-        throw new ConversionException("Deprecated. Not used anymore");
     }
 
     public void addAcLineSegmentAtNode(PropertyBag line, String node) {
@@ -143,15 +137,6 @@ public class CgmesBoundary {
         return nodesVoltage.containsKey(node) ? nodesVoltage.get(node).angle : Double.NaN;
     }
 
-    /**
-     * @deprecated Not used anymore. To get the equipment at boundary node, use
-     * {@link CgmesBoundary#boundaryEquipmentAtNode(String)} instead.
-     */
-    @Deprecated
-    public List<PropertyBag> equipmentAtNode(String node) {
-        throw new ConversionException("Deprecated. Not used anymore");
-    }
-
     public List<BoundaryEquipment> boundaryEquipmentAtNode(String node) {
         return nodesEquipment.getOrDefault(node, Collections.emptyList());
     }
@@ -172,6 +157,18 @@ public class CgmesBoundary {
         return hvdcNodes.contains(node);
     }
 
+    public Collection<String> xnodesNames() {
+        return topologicalNodes.keySet();
+    }
+
+    public String topologicalNodeAtBoundary(String xnodeName) {
+        return topologicalNodes.get(xnodeName);
+    }
+
+    public String connectivityNodeAtBoundary(String xnodeName) {
+        return connectivityNodes.get(xnodeName);
+    }
+
     private static class Voltage {
         double v;
         double angle;
@@ -183,6 +180,8 @@ public class CgmesBoundary {
     private final Map<String, PowerFlow> nodesPowerFlow;
     private final Map<String, Voltage> nodesVoltage;
     private final Map<String, String> nodesName;
+    private final Map<String, String> topologicalNodes;
+    private final Map<String, String> connectivityNodes;
     private final Map<String, String> lineAtNodes;
     private final Set<String> hvdcNodes;
 

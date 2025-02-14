@@ -3,17 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.timeseries;
 
 import java.nio.DoubleBuffer;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public interface DoubleTimeSeries extends TimeSeries<DoublePoint, DoubleTimeSeries> {
 
@@ -59,7 +61,7 @@ public interface DoubleTimeSeries extends TimeSeries<DoublePoint, DoubleTimeSeri
             }
         }
 
-        Map<Integer, List<DoublePointExt>> points = new TreeMap<>();
+        Map<Integer, List<DoublePointExt>> points = new HashMap<>();
         for (int timeSeriesNum = 0; timeSeriesNum < timeSeriesList.size(); timeSeriesNum++) {
             DoubleTimeSeries timeSeries = timeSeriesList.get(timeSeriesNum);
             for (DoublePoint point : timeSeries) {
@@ -68,7 +70,9 @@ public interface DoubleTimeSeries extends TimeSeries<DoublePoint, DoubleTimeSeri
             }
         }
 
-        Iterator<Map.Entry<Integer, List<DoublePointExt>>> it = points.entrySet().iterator();
+        Iterator<Map.Entry<Integer, List<DoublePointExt>>> it = points.entrySet().stream()
+            .sorted(Comparator.comparingInt(Map.Entry::getKey))
+            .iterator();
 
         return new Iterator<DoubleMultiPoint>() {
 
@@ -96,7 +100,12 @@ public interface DoubleTimeSeries extends TimeSeries<DoublePoint, DoubleTimeSeri
 
                     @Override
                     public long getTime() {
-                        return e.getValue().get(0).getPoint().getTime();
+                        return getInstant().toEpochMilli();
+                    }
+
+                    @Override
+                    public Instant getInstant() {
+                        return e.getValue().get(0).getPoint().getInstant();
                     }
 
                     @Override

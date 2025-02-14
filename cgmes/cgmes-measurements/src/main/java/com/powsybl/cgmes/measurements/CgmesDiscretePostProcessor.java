@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.measurements;
 
@@ -20,7 +21,7 @@ import java.util.Map;
 import static com.powsybl.iidm.network.extensions.DiscreteMeasurement.Type.*;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 public final class CgmesDiscretePostProcessor {
 
@@ -76,8 +77,7 @@ public final class CgmesDiscretePostProcessor {
     }
 
     private static void setTapChanger(DiscreteMeasurementAdder adder, Identifiable<?> identifiable) {
-        if (identifiable instanceof TwoWindingsTransformer) {
-            TwoWindingsTransformer twt = (TwoWindingsTransformer) identifiable;
+        if (identifiable instanceof TwoWindingsTransformer twt) {
             if (twt.hasRatioTapChanger() && !twt.hasPhaseTapChanger()) {
                 adder.setTapChanger(DiscreteMeasurement.TapChanger.RATIO_TAP_CHANGER);
             } else if (!twt.hasRatioTapChanger() && twt.hasPhaseTapChanger()) {
@@ -85,8 +85,7 @@ public final class CgmesDiscretePostProcessor {
             } else {
                 adder.setType(OTHER);
             }
-        } else if (identifiable instanceof ThreeWindingsTransformer) {
-            ThreeWindingsTransformer twt = (ThreeWindingsTransformer) identifiable;
+        } else if (identifiable instanceof ThreeWindingsTransformer twt) {
             List<DiscreteMeasurement.TapChanger> tapChangers = new ArrayList<>();
             twt.getLeg1().getOptionalRatioTapChanger().ifPresent(tc -> tapChangers.add(DiscreteMeasurement.TapChanger.RATIO_TAP_CHANGER_1));
             twt.getLeg2().getOptionalRatioTapChanger().ifPresent(tc -> tapChangers.add(DiscreteMeasurement.TapChanger.RATIO_TAP_CHANGER_2));

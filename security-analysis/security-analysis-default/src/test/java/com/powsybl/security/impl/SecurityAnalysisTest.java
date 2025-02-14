@@ -3,24 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.impl;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
+import com.powsybl.action.SwitchAction;
 import com.powsybl.commons.config.InMemoryPlatformConfig;
 import com.powsybl.commons.config.PlatformConfig;
-import com.powsybl.commons.reporter.Reporter;
+import com.powsybl.commons.report.ReportNode;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.computation.ComputationResourcesStatus;
 import com.powsybl.contingency.*;
+import com.powsybl.iidm.modification.AbstractNetworkModification;
+import com.powsybl.iidm.modification.topology.NamingStrategy;
 import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManagerConstants;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import com.powsybl.iidm.modification.NetworkModification;
+import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.security.*;
-import com.powsybl.security.detectors.DefaultLimitViolationDetector;
+import com.powsybl.security.condition.AnyViolationCondition;
 import com.powsybl.security.extensions.ActivePowerExtension;
 import com.powsybl.security.extensions.CurrentExtension;
 import com.powsybl.security.impl.interceptors.SecurityAnalysisInterceptorMock;
@@ -29,11 +33,11 @@ import com.powsybl.security.monitor.StateMonitor;
 import com.powsybl.security.results.BranchResult;
 import com.powsybl.security.results.BusResult;
 import com.powsybl.security.results.PostContingencyResult;
+import com.powsybl.security.strategy.OperatorStrategy;
 import org.assertj.core.api.Assertions;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -43,37 +47,52 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
- * @author Teofil Calin BANC <teofil-calin.banc at rte-france.com>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
+ * @author Teofil Calin BANC {@literal <teofil-calin.banc at rte-france.com>}
  */
-public class SecurityAnalysisTest {
+class SecurityAnalysisTest {
+
+    private static final class SecurityAnalysisModificationTest extends AbstractNetworkModification {
+
+        @Override
+        public String getName() {
+            return "SecurityAnalysisModificationTest";
+        }
+
+        @Override
+        public void apply(Network network, NamingStrategy namingStrategy, boolean throwException, ComputationManager computationManager, ReportNode reportNode) {
+            network.getLine("NHV1_NHV2_2").getTerminal1().disconnect();
+            network.getLine("NHV1_NHV2_2").getTerminal2().disconnect();
+            network.getLine("NHV1_NHV2_1").getTerminal2().setP(600.0);
+            ((Bus) network.getIdentifiable("NHV2")).setV(380.0).setAngle(-0.10);
+        }
+    }
 
     private FileSystem fileSystem;
 
     private PlatformConfig platformConfig;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         platformConfig = new InMemoryPlatformConfig(fileSystem);
     }
 
-    @After
-    public void tearDown() throws IOException {
+    @AfterEach
+    void tearDown() throws IOException {
         fileSystem.close();
     }
 
     @Test
-    public void run() {
+    void run() {
         Network network = EurostagTutorialExample1Factory.create();
-        ((Bus) network.getIdentifiable("NHV1")).setV(380.0);
-        ((Bus) network.getIdentifiable("NHV2")).setV(380.0);
+        ((Bus) network.getIdentifiable("NHV1")).setV(380.0).setAngle(0.25);
+        ((Bus) network.getIdentifiable("NHV2")).setV(380.0).setAngle(0.20);
         network.getLine("NHV1_NHV2_1").getTerminal1().setP(560.0).setQ(550.0);
         network.getLine("NHV1_NHV2_1").getTerminal2().setP(560.0).setQ(550.0);
         network.getLine("NHV1_NHV2_1").newCurrentLimits1().setPermanentLimit(1500.0).add();
@@ -85,46 +104,34 @@ public class SecurityAnalysisTest {
                 .setValue(1300.0)
                 .endTemporaryLimit()
                 .add();
-
-        ComputationManager computationManager = createMockComputationManager();
+        network.newVoltageAngleLimit()
+            .setId("VoltageAngleLimit_NHV1_NHV2_1")
+            .from(network.getLine("NHV1_NHV2_1").getTerminal1())
+            .to(network.getLine("NHV1_NHV2_1").getTerminal2())
+            .setLowLimit(-0.25)
+            .setHighLimit(0.25)
+            .add();
 
         Contingency contingency = Contingency.builder("NHV1_NHV2_2_contingency")
                                              .addBranch("NHV1_NHV2_2")
                                              .build();
         Contingency contingencyMock = Mockito.spy(contingency);
-        Mockito.when(contingencyMock.toModification()).thenReturn(new NetworkModification() {
-            @Override
-            public void apply(Network network, ComputationManager computationManager) {
-                apply(network);
-            }
 
-            @Override
-            public void apply(Network network) {
-                network.getLine("NHV1_NHV2_2").getTerminal1().disconnect();
-                network.getLine("NHV1_NHV2_2").getTerminal2().disconnect();
-                network.getLine("NHV1_NHV2_1").getTerminal2().setP(600.0);
-            }
-        });
+        Mockito.when(contingencyMock.toModification()).thenReturn(new SecurityAnalysisModificationTest());
         ContingenciesProvider contingenciesProvider = n -> Collections.singletonList(contingencyMock);
-
-        LimitViolationFilter filter = new LimitViolationFilter();
-        LimitViolationDetector detector = new DefaultLimitViolationDetector();
         SecurityAnalysisInterceptorMock interceptorMock = new SecurityAnalysisInterceptorMock();
-        List<SecurityAnalysisInterceptor> interceptors = new ArrayList<>();
-        interceptors.add(interceptorMock);
 
-        SecurityAnalysisReport report = SecurityAnalysis.run(network,
+        SecurityAnalysisResult result = SecurityAnalysis.run(network,
                 VariantManagerConstants.INITIAL_VARIANT_ID,
-                contingenciesProvider, SecurityAnalysisParameters.load(platformConfig), computationManager, filter, detector,
-                interceptors);
+                contingenciesProvider,
+                createSecurityAnalysisRunParameters(interceptorMock))
+                .getResult();
 
-        SecurityAnalysisResult result = report.getResult();
-
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertEquals(0, result.getPreContingencyLimitViolationsResult().getLimitViolations().size());
         PostContingencyResult postcontingencyResult = result.getPostContingencyResults().get(0);
-        assertTrue(postcontingencyResult.getLimitViolationsResult().isComputationOk());
-        assertEquals(1, postcontingencyResult.getLimitViolationsResult().getLimitViolations().size());
+        assertSame(PostContingencyComputationStatus.CONVERGED, postcontingencyResult.getStatus());
+        assertEquals(2, postcontingencyResult.getLimitViolationsResult().getLimitViolations().size());
         LimitViolation violation = postcontingencyResult.getLimitViolationsResult().getLimitViolations().get(0);
         assertEquals(LimitViolationType.CURRENT, violation.getLimitType());
         assertEquals("NHV1_NHV2_1", violation.getSubjectId());
@@ -138,36 +145,45 @@ public class SecurityAnalysisTest {
         assertNotNull(extension2);
         assertEquals(1192.5631358010583, extension2.getPreContingencyValue(), 0.0);
 
-        Assert.assertEquals(1, interceptorMock.getOnPostContingencyResultCount());
-        Assert.assertEquals(1, interceptorMock.getOnPreContingencyResultCount());
-        Assert.assertEquals(1, interceptorMock.getOnSecurityAnalysisResultCount());
+        LimitViolation violation1 = postcontingencyResult.getLimitViolationsResult().getLimitViolations().get(1);
+        assertEquals(LimitViolationType.LOW_VOLTAGE_ANGLE, violation1.getLimitType());
+        assertEquals("VoltageAngleLimit_NHV1_NHV2_1", violation1.getSubjectId());
+        assertNull(violation1.getSide());
+
+        assertEquals(1, interceptorMock.getOnPostContingencyResultCount());
+        assertEquals(1, interceptorMock.getOnPreContingencyResultCount());
+        assertEquals(1, interceptorMock.getOnSecurityAnalysisResultCount());
     }
 
     @Test
-    public void runWithoutContingency() {
+    void runWithoutContingency() {
         Network network = EurostagTutorialExample1Factory.create();
-        ComputationManager computationManager = createMockComputationManager();
-
         ContingenciesProvider contingenciesProvider = Mockito.mock(ContingenciesProvider.class);
         Mockito.when(contingenciesProvider.getContingencies(network)).thenReturn(Collections.emptyList());
-
-        List<SecurityAnalysisInterceptor> interceptors = new ArrayList<>();
         SecurityAnalysisInterceptorMock interceptorMock = new SecurityAnalysisInterceptorMock();
-        interceptors.add(interceptorMock);
 
-        SecurityAnalysisReport report = SecurityAnalysis.run(network,
+        SecurityAnalysisResult result = SecurityAnalysis.run(network,
                 VariantManagerConstants.INITIAL_VARIANT_ID,
-                contingenciesProvider, SecurityAnalysisParameters.load(platformConfig), computationManager, new LimitViolationFilter(), new DefaultLimitViolationDetector(),
-                interceptors);
-        SecurityAnalysisResult result = report.getResult();
+                contingenciesProvider,
+                createSecurityAnalysisRunParameters(interceptorMock))
+                .getResult();
 
-        assertTrue(result.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getPreContingencyResult().getStatus());
         assertEquals(0, result.getPreContingencyLimitViolationsResult().getLimitViolations().size());
         assertEquals(0, result.getPostContingencyResults().size());
 
-        Assert.assertEquals(0, interceptorMock.getOnPostContingencyResultCount());
-        Assert.assertEquals(1, interceptorMock.getOnPreContingencyResultCount());
-        Assert.assertEquals(1, interceptorMock.getOnSecurityAnalysisResultCount());
+        assertEquals(0, interceptorMock.getOnPostContingencyResultCount());
+        assertEquals(1, interceptorMock.getOnPreContingencyResultCount());
+        assertEquals(1, interceptorMock.getOnSecurityAnalysisResultCount());
+    }
+
+    private SecurityAnalysisRunParameters createSecurityAnalysisRunParameters(SecurityAnalysisInterceptor interceptor) {
+        return new SecurityAnalysisRunParameters()
+                .setSecurityAnalysisParameters(SecurityAnalysisParameters.load(platformConfig))
+                .setComputationManager(createMockComputationManager())
+                .addInterceptor(interceptor)
+                .addOperatorStrategy(new OperatorStrategy("operatorStrategy", ContingencyContext.specificContingency("c1"), new AnyViolationCondition(), Collections.singletonList("action1")))
+                .addAction(new SwitchAction("action1", "switchId", true));
     }
 
     private static ComputationManager createMockComputationManager() {
@@ -181,7 +197,7 @@ public class SecurityAnalysisTest {
     }
 
     @Test
-    public void testStateMonitors() {
+    void testStateMonitors() {
         Network network = EurostagTutorialExample1Factory.create();
         ((Bus) network.getIdentifiable("NHV1")).setV(380.0);
         ((Bus) network.getIdentifiable("NHV1")).setAngle(0.0);
@@ -213,12 +229,11 @@ public class SecurityAnalysisTest {
         // Testing all contingencies at once
         ContingenciesProvider contingenciesProvider = n -> n.getBranchStream()
             .map(b -> new Contingency(b.getId(), new BranchContingency(b.getId())))
-            .collect(Collectors.toList());
+            .toList();
 
         SecurityAnalysisParameters saParameters = new SecurityAnalysisParameters();
 
         LimitViolationFilter filter = new LimitViolationFilter();
-        LimitViolationDetector detector = new DefaultLimitViolationDetector();
 
         List<StateMonitor> monitors = new ArrayList<>();
         monitors.add(new StateMonitor(new ContingencyContext("NHV1_NHV2_1", ContingencyContextType.SPECIFIC),
@@ -229,14 +244,14 @@ public class SecurityAnalysisTest {
         monitors.add(new StateMonitor(new ContingencyContext(null, ContingencyContextType.NONE),
                 Set.of("NHV1_NHV2_1", "NOT_EXISTING_BRANCH"), Set.of("VLHV1", "NOT_EXISTING_VOLTAGE_LEVEL"), Collections.singleton("NOT_EXISTING_T3W"))); // ignore IDs of non existing equipment
 
-        DefaultSecurityAnalysis defaultSecurityAnalysis = new DefaultSecurityAnalysis(network, detector, filter, computationManager, monitors, Reporter.NO_OP);
+        DefaultSecurityAnalysis defaultSecurityAnalysis = new DefaultSecurityAnalysis(network, filter, computationManager, monitors, ReportNode.NO_OP);
         SecurityAnalysisReport report = defaultSecurityAnalysis.run(network.getVariantManager().getWorkingVariantId(), saParameters, contingenciesProvider).join();
         SecurityAnalysisResult result = report.getResult();
-        Assertions.assertThat(result.getPreContingencyResult().getPreContingencyBusResults()).containsExactly(new BusResult("VLHV1", "VLHV1_0", 380.0, 0.0));
-        Assertions.assertThat(result.getPreContingencyResult().getPreContingencyBusResult("VLHV1_0")).isEqualToComparingOnlyGivenFields(new BusResult("VLHV1", "VLHV1_0", 380.0, 0.0));
-        Assertions.assertThat(result.getPreContingencyResult().getPreContingencyBranchResults()).containsExactly(new BranchResult("NHV1_NHV2_1",  560.0, 550.0,  1192.5631358010583, 560.0,  550.0, 1192.5631358010583, 0.0));
-        Assertions.assertThat(result.getPreContingencyResult().getPreContingencyBranchResult("NHV1_NHV2_1")).isEqualToComparingOnlyGivenFields(new BranchResult("NHV1_NHV2_1",  560.0, 550.0,  1192.5631358010583, 560.0,  550.0, 1192.5631358010583, 0.0));
-        Assertions.assertThat(result.getPostContingencyResults().get(0).getBranchResults()).containsExactly(new BranchResult("NHV1_NHV2_2",  600.0, 500.0,  1186.6446717954987, 600.0,  500.0, 1186.6446717954987, 0.0));
-        Assertions.assertThat(result.getPostContingencyResults().get(0).getBusResults()).containsExactly(new BusResult("VLHV2", "VLHV2_0", 380.0, 0.0));
+        Assertions.assertThat(result.getPreContingencyResult().getNetworkResult().getBusResults()).containsExactly(new BusResult("VLHV1", "VLHV1_0", 380.0, 0.0));
+        Assertions.assertThat(result.getPreContingencyResult().getNetworkResult().getBusResult("VLHV1_0")).isEqualToComparingOnlyGivenFields(new BusResult("VLHV1", "VLHV1_0", 380.0, 0.0));
+        Assertions.assertThat(result.getPreContingencyResult().getNetworkResult().getBranchResults()).containsExactly(new BranchResult("NHV1_NHV2_1", 560.0, 550.0, 1192.5631358010583, 560.0, 550.0, 1192.5631358010583, 0.0));
+        Assertions.assertThat(result.getPreContingencyResult().getNetworkResult().getBranchResult("NHV1_NHV2_1")).isEqualToComparingOnlyGivenFields(new BranchResult("NHV1_NHV2_1", 560.0, 550.0, 1192.5631358010583, 560.0, 550.0, 1192.5631358010583, 0.0));
+        Assertions.assertThat(result.getPostContingencyResults().get(0).getNetworkResult().getBranchResults()).containsExactly(new BranchResult("NHV1_NHV2_2", 600.0, 500.0, 1186.6446717954987, 600.0, 500.0, 1186.6446717954987, 0.0));
+        Assertions.assertThat(result.getPostContingencyResults().get(0).getNetworkResult().getBusResults()).containsExactly(new BusResult("VLHV2", "VLHV2_0", 380.0, 0.0));
     }
 }

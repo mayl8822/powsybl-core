@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
@@ -17,7 +18,7 @@ import java.util.stream.Stream;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 class CalculatedBusImpl extends AbstractBus implements CalculatedBus {
 
@@ -28,7 +29,7 @@ class CalculatedBusImpl extends AbstractBus implements CalculatedBus {
 
     private NodeTerminal terminalRef;
 
-    CalculatedBusImpl(String id, String name, boolean fictitious, NodeBreakerVoltageLevel voltageLevel, TIntArrayList nodes, List<NodeTerminal> terminals, Function<Terminal, Bus> getBusFromTerminal) {
+    CalculatedBusImpl(String id, String name, boolean fictitious, VoltageLevelExt voltageLevel, TIntArrayList nodes, List<NodeTerminal> terminals, Function<Terminal, Bus> getBusFromTerminal) {
         super(id, name, fictitious, voltageLevel);
         this.terminals = Objects.requireNonNull(terminals);
         this.getBusFromTerminal = Objects.requireNonNull(getBusFromTerminal);
@@ -46,7 +47,7 @@ class CalculatedBusImpl extends AbstractBus implements CalculatedBus {
      * @param terminals The terminals belong to this bus
      * @return The first terminal of the {@code terminals} list, or a terminal which belongs to an equivalent "electrical" bus.
      */
-    private static NodeTerminal findTerminal(NodeBreakerVoltageLevel voltageLevel, TIntArrayList nodes, List<NodeTerminal> terminals) {
+    private static NodeTerminal findTerminal(VoltageLevelExt voltageLevel, TIntArrayList nodes, List<NodeTerminal> terminals) {
         if (!terminals.isEmpty()) {
             return terminals.get(0);
         }
@@ -284,15 +285,15 @@ class CalculatedBusImpl extends AbstractBus implements CalculatedBus {
     }
 
     @Override
-    public Iterable<DanglingLine> getDanglingLines() {
+    public Iterable<DanglingLine> getDanglingLines(DanglingLineFilter danglingLineFilter) {
         checkValidity();
-        return super.getDanglingLines();
+        return super.getDanglingLines(danglingLineFilter);
     }
 
     @Override
-    public Stream<DanglingLine> getDanglingLineStream() {
+    public Stream<DanglingLine> getDanglingLineStream(DanglingLineFilter danglingLineFilter) {
         checkValidity();
-        return super.getDanglingLineStream();
+        return super.getDanglingLineStream(danglingLineFilter);
     }
 
     @Override

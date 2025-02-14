@@ -3,24 +3,26 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.powerfactory.converter;
 
-import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.Generator;
 import com.powsybl.iidm.network.Network;
+import com.powsybl.iidm.network.ReactiveCapabilityCurveAdder;
 import com.powsybl.iidm.network.VoltageLevel;
 import com.powsybl.powerfactory.converter.PowerFactoryImporter.ImportContext;
-import com.powsybl.powerfactory.converter.PowerFactoryImporter.NodeRef;
 import com.powsybl.powerfactory.model.DataObject;
 import com.powsybl.powerfactory.model.DataObjectRef;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
- * @author José Antonio Marqués <marquesja at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
+ * @author José Antonio Marqués {@literal <marquesja at aia.es>}
  */
 
 class GeneratorConverter extends AbstractConverter {
@@ -35,7 +37,7 @@ class GeneratorConverter extends AbstractConverter {
 
         VoltageLevel vl = getNetwork().getVoltageLevel(nodeRef.voltageLevelId);
         Generator g = vl.newGenerator()
-                .setId(elmSym.getLocName())
+                .setId(getId(elmSym))
                 .setEnsureIdUnicity(true)
                 .setNode(nodeRef.node)
                 .setTargetP(generatorModel.targetP)
@@ -45,11 +47,31 @@ class GeneratorConverter extends AbstractConverter {
                 .setMinP(generatorModel.minP)
                 .setMaxP(generatorModel.maxP)
                 .add();
-        ReactiveLimits.create(elmSym).ifPresent(reactiveLimits ->
-                g.newMinMaxReactiveLimits()
-                        .setMinQ(reactiveLimits.minQ)
-                        .setMaxQ(reactiveLimits.maxQ)
-                        .add());
+
+        Optional<List<CapabilityCurvePoint>> capabitlityCurve = CapabilityCurvePoint.create(elmSym);
+        if (capabitlityCurve.isPresent()) {
+            ReactiveCapabilityCurveAdder adder = g.newReactiveCapabilityCurve();
+            capabitlityCurve.get().forEach(capabitlityCurvePoint -> adder.beginPoint()
+                .setP(capabitlityCurvePoint.p)
+                .setMinQ(capabitlityCurvePoint.qMin)
+                .setMaxQ(capabitlityCurvePoint.qMax)
+                .endPoint());
+            adder.add();
+        } else {
+            ReactiveLimits.create(elmSym).ifPresent(reactiveLimits -> g.newMinMaxReactiveLimits()
+                .setMinQ(reactiveLimits.minQ)
+                .setMaxQ(reactiveLimits.maxQ)
+                .add());
+        }
+    }
+
+    static boolean isSlack(DataObject elmSym) {
+        OptionalInt ipCtrl = elmSym.findIntAttributeValue("ip_ctrl");
+        if (ipCtrl.isPresent() && ipCtrl.getAsInt() == 1) {
+            return true;
+        }
+        Optional<String> bustp = elmSym.findStringAttributeValue("bustp");
+        return bustp.isPresent() && bustp.get().equals("SL");
     }
 
     private static final class GeneratorModel {
@@ -72,8 +94,8 @@ class GeneratorConverter extends AbstractConverter {
         private static GeneratorModel create(DataObject elmSym) {
             boolean voltageRegulatorOn = voltageRegulatorOn(elmSym);
 
-            float pgini = elmSym.getFloatAttributeValue("pgini");
-            float qgini = elmSym.getFloatAttributeValue("qgini");
+            float pgini = elmSym.findFloatAttributeValue("pgini_a").orElse(elmSym.getFloatAttributeValue("pgini"));
+            float qgini = elmSym.findFloatAttributeValue("qgini_a").orElse(elmSym.getFloatAttributeValue("qgini"));
             double usetp = elmSym.getFloatAttributeValue("usetp");
             double pMinUc = minP(elmSym, pgini);
             double pMaxUc = maxP(elmSym, pgini);
@@ -118,7 +140,7 @@ class GeneratorConverter extends AbstractConverter {
         private static Optional<ReactiveLimits> create(DataObject elmSym) {
             Optional<DataObject> pQlimType = elmSym.findObjectAttributeValue("pQlimType").flatMap(DataObjectRef::resolve);
             if (pQlimType.isPresent()) {
-                throw new PowsyblException("Reactive capability curve not supported: '" + elmSym + "'");
+                return Optional.empty();
             }
             return elmSym
                     .findObjectAttributeValue(DataAttributeNames.TYP_ID)
@@ -169,5 +191,41 @@ class GeneratorConverter extends AbstractConverter {
             }
             return Optional.empty();
         }
+    }
+
+    private static final class CapabilityCurvePoint {
+        private final double p;
+        private final double qMin;
+        private final double qMax;
+
+        private CapabilityCurvePoint(double p, double qMin, double qMax) {
+            this.p = p;
+            this.qMin = qMin;
+            this.qMax = qMax;
+        }
+
+        private static Optional<List<CapabilityCurvePoint>> create(DataObject elmSym) {
+            Optional<DataObject> pQlimType = elmSym.findObjectAttributeValue("pQlimType")
+                    .flatMap(DataObjectRef::resolve);
+            if (pQlimType.isPresent()) {
+                Optional<List<Double>> capP = pQlimType.get().findDoubleVectorAttributeValue("cap_P");
+                Optional<List<Double>> capQmn = pQlimType.get().findDoubleVectorAttributeValue("cap_Qmn");
+                Optional<List<Double>> capQmx = pQlimType.get().findDoubleVectorAttributeValue("cap_Qmx");
+                if (capP.isPresent() && capQmn.isPresent() && capQmx.isPresent()
+                        && !capP.get().isEmpty()
+                        && capP.get().size() == capQmn.get().size() && capP.get().size() == capQmx.get().size()) {
+                    List<CapabilityCurvePoint> capabilityCurve = new ArrayList<>();
+                    for (int i = 0; i < capP.get().size(); i++) {
+                        capabilityCurve.add(new CapabilityCurvePoint(capP.get().get(i), capQmn.get().get(i), capQmx.get().get(i)));
+                    }
+                    return Optional.of(capabilityCurve);
+                }
+            }
+            return Optional.empty();
+        }
+    }
+
+    static String getId(DataObject elmSym) {
+        return elmSym.getLocName();
     }
 }

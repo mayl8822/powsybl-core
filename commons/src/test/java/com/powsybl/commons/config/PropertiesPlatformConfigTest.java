@@ -3,11 +3,12 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.config;
 
 import com.google.common.collect.Sets;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -19,20 +20,20 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class PropertiesPlatformConfigTest extends MapModuleConfigTest {
+class PropertiesPlatformConfigTest extends AbstractMapModuleConfigTest {
 
-    public PropertiesPlatformConfigTest() {
+    PropertiesPlatformConfigTest() {
     }
 
     @Test
-    public void test() throws IOException {
+    void test() throws IOException {
         Path cfgDir = Files.createDirectory(fileSystem.getPath("config"));
         Properties prop1 = new Properties();
         prop1.setProperty("s", "hello");

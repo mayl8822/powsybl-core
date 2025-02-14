@@ -3,14 +3,15 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.alternatives.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -24,36 +25,36 @@ import org.slf4j.LoggerFactory;
 
 import com.powsybl.cgmes.model.CgmesModel;
 import com.powsybl.cgmes.model.CgmesModelFactory;
-import com.powsybl.cgmes.model.test.TestGridModel;
+import com.powsybl.cgmes.model.GridModelReference;
 import com.powsybl.cgmes.model.triplestore.CgmesModelTripleStore;
 import com.powsybl.commons.datasource.ReadOnlyDataSource;
 import com.powsybl.triplestore.api.PropertyBags;
 import com.powsybl.triplestore.api.QueryCatalog;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
-public class AlternativeQueriesTester {
+class AlternativeQueriesTester {
 
-    public AlternativeQueriesTester(List<String> tripleStoreImplementations,
+    AlternativeQueriesTester(List<String> tripleStoreImplementations,
         QueryCatalog queries,
-        TestGridModel gridModel,
+        GridModelReference gridModel,
         Expected expected) {
         // By default, execute the tests without caching the models
         this(tripleStoreImplementations, queries, gridModel, expected, 1, true, null, false);
     }
 
-    public AlternativeQueriesTester(List<String> tripleStoreImplementations,
+    AlternativeQueriesTester(List<String> tripleStoreImplementations,
         QueryCatalog queries,
-        TestGridModel gridModel,
+        GridModelReference gridModel,
         Expected expected,
         boolean cacheModels) {
         this(tripleStoreImplementations, queries, gridModel, expected, 1, true, null, cacheModels);
     }
 
-    public AlternativeQueriesTester(List<String> tripleStoreImplementations,
+    AlternativeQueriesTester(List<String> tripleStoreImplementations,
         QueryCatalog queries,
-        TestGridModel gridModel,
+        GridModelReference gridModel,
         Expected expected, int experiments,
         boolean doAssert,
         Consumer<PropertyBags> consumer,
@@ -69,11 +70,11 @@ public class AlternativeQueriesTester {
         this.cachedModels = cacheModels ? new HashMap<>(implementations.size()) : null;
     }
 
-    public Expected expected() {
+    Expected expected() {
         return this.expected;
     }
 
-    public void load() {
+    void load() {
         if (cacheModels) {
             // Load the model for every triple store implementation
             for (String impl : implementations) {
@@ -85,7 +86,7 @@ public class AlternativeQueriesTester {
         }
     }
 
-    public void test(String alternative, Expected expected, Consumer<PropertyBags> consumer) throws IOException {
+    void test(String alternative, Expected expected, Consumer<PropertyBags> consumer) throws IOException {
         String queryText = queries.get(alternative);
         assertNotNull(queryText);
         assertFalse(queryText.isEmpty());
@@ -94,32 +95,32 @@ public class AlternativeQueriesTester {
         }
     }
 
-    public void test(String alternative) throws IOException {
+    void test(String alternative) throws IOException {
         // If no explicit expected result, use the default expected result for the
         // tester
         test(alternative, this.expected);
     }
 
-    public void test(String alternative, Expected expected) throws IOException {
+    void test(String alternative, Expected expected) throws IOException {
         test(alternative, expected, this.consumer);
     }
 
-    public static class Expected {
-        public Expected() {
+    static class Expected {
+        Expected() {
             resultSize = 0;
             propertyCount = new HashMap<>();
         }
 
-        public Expected resultSize(long resultSize) {
+        Expected resultSize(long resultSize) {
             this.resultSize = resultSize;
             return this;
         }
 
-        public long resultSize() {
+        long resultSize() {
             return this.resultSize;
         }
 
-        public Expected propertyCount(String property, long count) {
+        Expected propertyCount(String property, long count) {
             this.propertyCount.put(property, count);
             return this;
         }
@@ -204,7 +205,7 @@ public class AlternativeQueriesTester {
     private final boolean cacheModels;
     private final Map<String, CgmesModelTripleStore> cachedModels;
     private final QueryCatalog queries;
-    private final TestGridModel gridModel;
+    private final GridModelReference gridModel;
     private final Expected expected;
     private final int experiments;
     private final boolean doAssert;

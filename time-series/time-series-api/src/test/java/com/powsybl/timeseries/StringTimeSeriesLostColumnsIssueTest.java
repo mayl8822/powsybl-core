@@ -3,10 +3,11 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.timeseries;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.threeten.extra.Interval;
 
 import java.io.IOException;
@@ -15,16 +16,16 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class StringTimeSeriesLostColumnsIssueTest {
+class StringTimeSeriesLostColumnsIssueTest {
 
     @Test
-    public void test() throws IOException {
+    void test() throws IOException {
         String csv = String.join(System.lineSeparator(),
                 "Time;Version;TITLE1;TITLE2",
                 "2016-01-01T01:00:00Z;1;VALUE;VALUE",

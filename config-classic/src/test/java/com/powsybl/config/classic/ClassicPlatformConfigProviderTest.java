@@ -3,18 +3,19 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.config.classic;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.powsybl.commons.config.ModuleConfigRepository;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -26,19 +27,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * @author Jon Harper <jon.harper at rte-france.com>
+ * @author Jon Harper {@literal <jon.harper at rte-france.com>}
  */
-public class ClassicPlatformConfigProviderTest {
+class ClassicPlatformConfigProviderTest {
 
     private FileSystem fileSystem;
 
-    @Before
-    public void setUp() throws IOException {
+    @BeforeEach
+    void setUp() throws IOException {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
     }
 
-    @After
-    public void tearDown() throws IOException {
+    @AfterEach
+    void tearDown() throws IOException {
         fileSystem.close();
     }
 
@@ -49,37 +50,37 @@ public class ClassicPlatformConfigProviderTest {
     }
 
     @Test
-    public void testNoUserHome() {
-        assertEquals(Arrays.asList("/.itools"), getAbsolutePaths(null));
+    void testNoUserHome() {
+        assertEquals(List.of("/.itools"), getAbsolutePaths(null));
     }
 
     @Test
-    public void testEdgeCaseEmptyAfterSplit() {
-        assertEquals(Arrays.asList("/.itools"), getAbsolutePaths(":"));
+    void testEdgeCaseEmptyAfterSplit() {
+        assertEquals(List.of("/.itools"), getAbsolutePaths(":"));
     }
 
     @Test
-    public void workDir() {
-        assertEquals(Arrays.asList("/work"), getAbsolutePaths("."));
+    void workDir() {
+        assertEquals(List.of("/work"), getAbsolutePaths("."));
     }
 
     @Test
-    public void testEmptyConfigDirs() {
-        assertEquals(Arrays.asList("/.itools"), getAbsolutePaths(""));
+    void testEmptyConfigDirs() {
+        assertEquals(List.of("/.itools"), getAbsolutePaths(""));
     }
 
     @Test
-    public void testNormalConfigDirs() {
+    void testNormalConfigDirs() {
         assertEquals(Arrays.asList("/foo", "/bar"), getAbsolutePaths("/foo:/bar/"));
     }
 
     @Test
-    public void testModuleRepository() throws IOException {
+    void testModuleRepository() throws IOException {
         try (BufferedWriter newBufferedWriter = Files.newBufferedWriter(fileSystem.getPath("/config.yml"))) {
             newBufferedWriter.write("foo:\n bar: baz");
         }
         ModuleConfigRepository loadModuleRepository = ClassicPlatformConfigProvider
                 .loadModuleRepository(new Path[] {fileSystem.getPath("/") }, "config");
-        assertEquals("baz", loadModuleRepository.getModuleConfig("foo").get().getStringProperty("bar"));
+        assertEquals("baz", loadModuleRepository.getModuleConfig("foo").orElseThrow().getStringProperty("bar"));
     }
 }

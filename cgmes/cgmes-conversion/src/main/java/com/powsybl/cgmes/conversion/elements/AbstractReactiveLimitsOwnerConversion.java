@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.conversion.elements;
@@ -20,7 +21,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * @author Luma Zamarreño <zamarrenolm at aia.es>
+ * @author Luma Zamarreño {@literal <zamarrenolm at aia.es>}
  */
 public abstract class AbstractReactiveLimitsOwnerConversion extends AbstractConductingEquipmentConversion {
 
@@ -29,6 +30,31 @@ public abstract class AbstractReactiveLimitsOwnerConversion extends AbstractCond
         PropertyBag p,
         Context context) {
         super(type, p, context);
+    }
+
+    private void getReactiveCapabilityCurveData(PropertyBag propertyBag, Map<Double, Range<Double>> qRanges) {
+        double p = propertyBag.asDouble("xvalue");
+        double minQ = propertyBag.asDouble("y1value");
+        double maxQ = propertyBag.asDouble("y2value");
+
+        if (!checkPointValidity(p, minQ, maxQ)) {
+            return;
+        }
+
+        Range<Double> qRange = fixedMinMaxQ("ReactiveCapabilityCurve Point", minQ, maxQ);
+
+        // check if there is a previous point with same p
+        Range<Double> prev = qRanges.get(p);
+        if (prev != null) {
+            if (prev.isConnected(qRange)) {
+                fixed("reactive capability curve", () -> String.format("point merged with another one with same p (%f)", p));
+                qRanges.put(p, prev.span(qRange));
+            } else {
+                ignored("reactive capability curve point", () -> String.format("another point with same p (%f) and a disconnected reactive range", p));
+            }
+        } else {
+            qRanges.put(p, qRange);
+        }
     }
 
     protected void convertReactiveLimits(ReactiveLimitsHolder g) {
@@ -41,30 +67,7 @@ public abstract class AbstractReactiveLimitsOwnerConversion extends AbstractCond
             PropertyBags curveData = context.reactiveCapabilityCurveData(curveId);
 
             Map<Double, Range<Double>> qRanges = new HashMap<>();
-            curveData.forEach(d -> {
-                double p = d.asDouble("xvalue");
-                double minQ = d.asDouble("y1value");
-                double maxQ = d.asDouble("y2value");
-
-                if (!checkPointValidity(p, minQ, maxQ)) {
-                    return;
-                }
-
-                Range<Double> qRange = fixedMinMaxQ("ReactiveCapabilityCurve Point", minQ, maxQ);
-
-                // check if there is a previous point with same p
-                Range<Double> prev = qRanges.get(p);
-                if (prev != null) {
-                    if (prev.isConnected(qRange)) {
-                        fixed("reactive capability curve", () -> String.format("point merged with another one with same p (%f)", p));
-                        qRanges.put(p, prev.span(qRange));
-                    } else {
-                        ignored("reactive capability curve point", () -> String.format("another point with same p (%f) and a disconnected reactive range", p));
-                    }
-                } else {
-                    qRanges.put(p, qRange);
-                }
-            });
+            curveData.forEach(d -> getReactiveCapabilityCurveData(d, qRanges));
 
             if (qRanges.size() >= 2) {
                 // create curve

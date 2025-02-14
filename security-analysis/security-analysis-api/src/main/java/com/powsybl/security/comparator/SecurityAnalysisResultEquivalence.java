@@ -3,22 +3,24 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.security.comparator;
 
 import java.io.Writer;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import com.google.common.base.Equivalence;
 import com.powsybl.security.LimitViolation;
+import com.powsybl.security.PostContingencyComputationStatus;
 import com.powsybl.security.results.PostContingencyResult;
 import com.powsybl.security.SecurityAnalysisResult;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
 public class SecurityAnalysisResultEquivalence extends Equivalence<SecurityAnalysisResult> {
 
@@ -36,14 +38,15 @@ public class SecurityAnalysisResultEquivalence extends Equivalence<SecurityAnaly
         PostContingencyResultComparator postContingencyResultComparator = new PostContingencyResultComparator();
 
         // compare precontingency results
-        boolean equivalent = violationsResultEquivalence.equivalent(result1.getPreContingencyLimitViolationsResult(), result2.getPreContingencyLimitViolationsResult());
+        boolean equivalent = result1.getPreContingencyResult().getStatus() == result2.getPreContingencyResult().getStatus();
+        equivalent &= violationsResultEquivalence.equivalent(result1.getPreContingencyLimitViolationsResult(), result2.getPreContingencyLimitViolationsResult());
 
         // I still carry on the comparison even if equivalent is already false because I need to print the violations of the post contingency results
         // compare postcontingency results
-        List<PostContingencyResult> postContingencyResults1 = result1.getPostContingencyResults();
-        List<PostContingencyResult> postContingencyResults2 = result2.getPostContingencyResults();
-        Collections.sort(postContingencyResults1, postContingencyResultComparator);
-        Collections.sort(postContingencyResults2, postContingencyResultComparator);
+        List<PostContingencyResult> postContingencyResults1 = new ArrayList<>(result1.getPostContingencyResults());
+        List<PostContingencyResult> postContingencyResults2 = new ArrayList<>(result2.getPostContingencyResults());
+        postContingencyResults1.sort(postContingencyResultComparator);
+        postContingencyResults2.sort(postContingencyResultComparator);
         int index1 = 0;
         int index2 = 0;
         while (index1 < postContingencyResults1.size() && index2 < postContingencyResults2.size()) {
@@ -86,8 +89,8 @@ public class SecurityAnalysisResultEquivalence extends Equivalence<SecurityAnaly
                                                   .reduce(Boolean::logicalAnd)
                                                   .orElse(false);
         comparisonWriter = missingResult1 ?
-                           comparisonWriter.write(null, postContingencyResult.getLimitViolationsResult().isComputationOk(), equivalent) :
-                           comparisonWriter.write(postContingencyResult.getLimitViolationsResult().isComputationOk(), null, equivalent);
+                           comparisonWriter.write(null, postContingencyResult.getStatus() == PostContingencyComputationStatus.CONVERGED, equivalent) :
+                           comparisonWriter.write(postContingencyResult.getStatus() == PostContingencyComputationStatus.CONVERGED, null, equivalent);
         comparisonWriter = missingResult1 ?
                            comparisonWriter.write(null, postContingencyResult.getLimitViolationsResult().getActionsTaken(), equivalent) :
                            comparisonWriter.write(postContingencyResult.getLimitViolationsResult().getActionsTaken(), null, equivalent);

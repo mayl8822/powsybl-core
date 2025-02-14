@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck.extensions;
 
@@ -11,12 +12,12 @@ import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.extensions.GeneratorStartup;
 import com.powsybl.iidm.network.extensions.GeneratorStartupAdder;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Miora Vedelago <miora.ralambotiana at rte-france.com>
+ * @author Miora Vedelago {@literal <miora.ralambotiana at rte-france.com>}
  */
 public abstract class AbstractGeneratorStartupTest {
 
@@ -24,14 +25,13 @@ public abstract class AbstractGeneratorStartupTest {
     public void test() {
         Network network = EurostagTutorialExample1Factory.create();
         Generator generator = network.getGenerator("GEN");
-        generator.newExtension(GeneratorStartupAdder.class)
+        GeneratorStartup startup = generator.newExtension(GeneratorStartupAdder.class)
                 .withPlannedActivePowerSetpoint(600.0)
                 .withStartupCost(5.0)
                 .withMarginalCost(10.0)
                 .withPlannedOutageRate(0.8)
                 .withForcedOutageRate(0.7)
                 .add();
-        GeneratorStartup startup = generator.getExtension(GeneratorStartup.class);
         assertEquals(600.0, startup.getPlannedActivePowerSetpoint(), 0.0);
         assertEquals(5.0, startup.getStartupCost(), 0.0);
         assertEquals(10.0, startup.getMarginalCost(), 0.0);

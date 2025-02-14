@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation.local;
 
@@ -12,9 +13,9 @@ import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.powsybl.computation.*;
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -32,12 +33,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class LocalComputationManagerTest {
+class LocalComputationManagerTest {
 
     private static final String PREFIX = "test_";
 
@@ -47,30 +48,30 @@ public class LocalComputationManagerTest {
 
     private LocalComputationConfig config;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
         localDir = fileSystem.getPath("/tmp");
         config = new LocalComputationConfig(localDir, 1);
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    void tearDown() throws Exception {
         fileSystem.close();
     }
 
     @Test
-    public void testVersion() throws Exception {
+    void testVersion() throws Exception {
         assertEquals("none (local mode)", new LocalComputationManager(config).getVersion());
     }
 
     @Test
-    public void testLocalDir() throws Exception {
+    void testLocalDir() throws Exception {
         assertEquals(localDir, new LocalComputationManager(config).getLocalDir());
     }
 
     @Test
-    public void test1() throws Exception {
+    void test1() throws Exception {
         LocalCommandExecutor localCommandExecutor = new AbstractLocalCommandExecutor() {
             @Override
             void nonZeroLog(List<String> cmdLs, int exitCode) {
@@ -138,7 +139,7 @@ public class LocalComputationManagerTest {
     }
 
     @Test
-    public void test2() throws Exception {
+    void test2() throws Exception {
         LocalCommandExecutor localCommandExecutor = new AbstractLocalCommandExecutor() {
             @Override
             void nonZeroLog(List<String> cmdLs, int exitCode) {
@@ -219,8 +220,8 @@ public class LocalComputationManagerTest {
         }
     }
 
-    @Test(expected = ExecutionException.class)
-    public void hangingIssue() throws Exception {
+    @Test
+    void hangingIssue() throws Exception {
         LocalCommandExecutor localCommandExecutor = new AbstractLocalCommandExecutor() {
             @Override
             void nonZeroLog(List<String> cmdLs, int exitCode) {
@@ -235,11 +236,11 @@ public class LocalComputationManagerTest {
             CompletableFuture<Object> result = computationManager.execute(ExecutionEnvironment.createDefault(), new AbstractExecutionHandler<Object>() {
                 @Override
                 public List<CommandExecution> before(Path workingDir) {
-                    throw new AssertionError("Oups");
+                    throw new IllegalStateException("Oups");
                 }
             });
             // check that code is not hanging anymore when a java.lang.Error is thrown inside before
-            result.get(100, TimeUnit.MILLISECONDS);
+            assertThrows(ExecutionException.class, () -> result.get(100, TimeUnit.MILLISECONDS));
         }
     }
 
@@ -253,11 +254,11 @@ public class LocalComputationManagerTest {
         return Collections.singletonList(new CommandExecution(command, 1));
     }
 
-    @Test(expected = CancellationException.class)
-    public void cancelBeforeExecutionShouldThrowAndNotExecute() throws Exception {
+    @Test
+    void cancelBeforeExecutionShouldThrowAndNotExecute() throws Exception {
         LocalCommandExecutor localCommandExecutor = new AbstractLocalCommandExecutor() {
             @Override
-            void nonZeroLog(List<String> cmdLs, int exitCode) {
+            public void nonZeroLog(List<String> cmdLs, int exitCode) {
             }
 
             @Override
@@ -294,12 +295,12 @@ public class LocalComputationManagerTest {
             result.cancel(true);
             waitForCancel.countDown();
 
-            result.get();
+            assertThrows(CancellationException.class, result::get);
         }
     }
 
     @Test
-    public void cancelDuringExecutionShouldThrowAndEventuallyStopExecution() throws InterruptedException, ExecutionException, IOException {
+    void cancelDuringExecutionShouldThrowAndEventuallyStopExecution() throws InterruptedException, ExecutionException, IOException {
 
         CountDownLatch waitForExecution = new CountDownLatch(1);
         CountDownLatch execution = new CountDownLatch(1); // Will be interrupted, not decremented

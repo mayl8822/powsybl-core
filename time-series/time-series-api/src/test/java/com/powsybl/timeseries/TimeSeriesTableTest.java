@@ -3,49 +3,36 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.timeseries;
 
-import com.google.common.collect.ImmutableList;
 import com.powsybl.timeseries.TimeSeries.TimeFormat;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.StringReader;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class TimeSeriesTableTest {
-
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+class TimeSeriesTableTest {
 
     private TimeSeriesTable createTimeSeriesTable(TimeSeriesIndex index) {
-        TimeSeriesMetadata metadata1 = new TimeSeriesMetadata("ts1", TimeSeriesDataType.DOUBLE, index);
-        TimeSeriesMetadata metadata2 = new TimeSeriesMetadata("ts2", TimeSeriesDataType.DOUBLE, index);
-        TimeSeriesMetadata metadata3 = new TimeSeriesMetadata("ts3", TimeSeriesDataType.STRING, index);
-        DoubleTimeSeries ts1 = new StoredDoubleTimeSeries(metadata1, new UncompressedDoubleDataChunk(0, new double[] {1, 2, 3, 4}));
-        DoubleTimeSeries ts2 = new StoredDoubleTimeSeries(metadata2, new UncompressedDoubleDataChunk(0, new double[] {5, 6, 7, 8}));
-        StringTimeSeries ts3 = new StringTimeSeries(metadata3, new UncompressedStringDataChunk(1, new String[] {"a", "b", "c"}));
-
-        // load time series in the table
-        TimeSeriesTable table = new TimeSeriesTable(1, 1, index);
-
-        table.load(1, ImmutableList.of(ts1, ts2, ts3));
+        TimeSeriesTable table = getTimeSeriesTable(index);
 
         assertEquals(index, table.getTableIndex());
 
@@ -79,9 +66,24 @@ public class TimeSeriesTableTest {
         return table;
     }
 
+    private static TimeSeriesTable getTimeSeriesTable(TimeSeriesIndex index) {
+        TimeSeriesMetadata metadata1 = new TimeSeriesMetadata("ts1", TimeSeriesDataType.DOUBLE, index);
+        TimeSeriesMetadata metadata2 = new TimeSeriesMetadata("ts2", TimeSeriesDataType.DOUBLE, index);
+        TimeSeriesMetadata metadata3 = new TimeSeriesMetadata("ts3", TimeSeriesDataType.STRING, index);
+        DoubleTimeSeries ts1 = new StoredDoubleTimeSeries(metadata1, new UncompressedDoubleDataChunk(0, new double[] {1, 2, 3, 4}));
+        DoubleTimeSeries ts2 = new StoredDoubleTimeSeries(metadata2, new UncompressedDoubleDataChunk(0, new double[] {5, 6, 7, 8}));
+        StringTimeSeries ts3 = new StringTimeSeries(metadata3, new UncompressedStringDataChunk(1, new String[] {"a", "b", "c"}));
+
+        // load time series in the table
+        TimeSeriesTable table = new TimeSeriesTable(1, 1, index);
+
+        table.load(1, List.of(ts1, ts2, ts3));
+        return table;
+    }
+
     @Test
-    public void testVersionedCSV() {
-        TimeSeriesIndex index = new TestTimeSeriesIndex(0, 4);
+    void testVersionedCSV() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(3), Duration.ofMillis(1));
         TimeSeriesTable table = createTimeSeriesTable(index);
         TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"));
 
@@ -97,8 +99,25 @@ public class TimeSeriesTableTest {
     }
 
     @Test
-    public void testUnversionedCSV() {
-        TimeSeriesIndex index = new TestTimeSeriesIndex(0, 4);
+    void testVersionedCSVNano() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(0).plus(Duration.ofNanos(3)), Duration.ofNanos(1));
+        TimeSeriesTable table = createTimeSeriesTable(index);
+        TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"));
+
+        // test CSV export
+        assertEquals(String.join(System.lineSeparator(),
+            "Time;Version;ts1;ts2;ts3",
+            "1970-01-01T00:00:00Z;1;1.0;5.0;",
+            "1970-01-01T00:00:00.000000001Z;1;2.0;6.0;a",
+            "1970-01-01T00:00:00.000000002Z;1;3.0;7.0;b",
+            "1970-01-01T00:00:00.000000003Z;1;4.0;8.0;c") + System.lineSeparator(),
+            table.toCsvString(timeSeriesCsvConfig));
+
+    }
+
+    @Test
+    void testUnversionedCSV() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(3), Duration.ofMillis(1));
         TimeSeriesTable table = createTimeSeriesTable(index);
         TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"), ';', false, TimeFormat.FRACTIONS_OF_SECOND);
 
@@ -113,10 +132,10 @@ public class TimeSeriesTableTest {
     }
 
     @Test
-    public void testMillisCSV() {
-        TimeSeriesIndex index = new TestTimeSeriesIndex(0, 4);
+    void testMillisCSV() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(3), Duration.ofMillis(1));
         TimeSeriesTable table = createTimeSeriesTable(index);
-        TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"), ';', false, TimeFormat.MILLIS);
+        TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"), ';', false, TimeFormat.MILLIS, false);
 
         // test CSV export
         assertEquals(String.join(System.lineSeparator(),
@@ -129,7 +148,39 @@ public class TimeSeriesTableTest {
     }
 
     @Test
-    public void testEmptyTable() {
+    void testMicrosCSV() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(0).plus(Duration.ofMillis(3)), Duration.ofMillis(1));
+        TimeSeriesTable table = createTimeSeriesTable(index);
+        TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"), ';', false, TimeFormat.MICROS, false);
+
+        // test CSV export
+        assertEquals(String.join(System.lineSeparator(),
+            "Time;ts1;ts2;ts3",
+            "0;1.0;5.0;",
+            "1000;2.0;6.0;a",
+            "2000;3.0;7.0;b",
+            "3000;4.0;8.0;c") + System.lineSeparator(),
+            table.toCsvString(timeSeriesCsvConfig));
+    }
+
+    @Test
+    void testNanosCSV() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(0).plus(Duration.ofNanos(3)), Duration.ofNanos(1));
+        TimeSeriesTable table = createTimeSeriesTable(index);
+        TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"), ';', false, TimeFormat.NANOS, false);
+
+        // test CSV export
+        assertEquals(String.join(System.lineSeparator(),
+            "Time;ts1;ts2;ts3",
+            "0;1.0;5.0;",
+            "1;2.0;6.0;a",
+            "2;3.0;7.0;b",
+            "3;4.0;8.0;c") + System.lineSeparator(),
+            table.toCsvString(timeSeriesCsvConfig));
+    }
+
+    @Test
+    void testEmptyTable() {
         // test empty table CSV export
         TimeSeriesCsvConfig timeSeriesCsvConfig = new TimeSeriesCsvConfig(ZoneId.of("UTC"));
         String emptyCsv = new TimeSeriesTable(0, 0, InfiniteTimeSeriesIndex.INSTANCE).toCsvString(timeSeriesCsvConfig);
@@ -137,11 +188,11 @@ public class TimeSeriesTableTest {
     }
 
     @Test
-    public void testConcurrent() throws Exception {
+    void testConcurrent() throws Exception {
         int threadCount = 16;
         int padLeftCount = (int) Math.floor(Math.log10(threadCount)) + 1;
         int timeSeriesLength = 100000;
-        TimeSeriesIndex index = new RegularTimeSeriesIndex(0, timeSeriesLength - 1, 1);
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(timeSeriesLength - 1), Duration.ofMillis(1));
         TimeSeriesTable table = new TimeSeriesTable(1, 1, index);
         List<TimeSeries<?, ?>> list = new ArrayList<>();
         for (int i = 0; i < threadCount; i++) {
@@ -181,7 +232,7 @@ public class TimeSeriesTableTest {
                             }
                             ts = new StringTimeSeries(metadata, new UncompressedStringDataChunk(0, values));
                         }
-                        table.load(1, Arrays.asList(ts));
+                        table.load(1, List.of(ts));
                     } finally {
                         cdl.countDown();
                     }
@@ -197,7 +248,7 @@ public class TimeSeriesTableTest {
                 Stream.of(l.split(";"))
                 .skip(2) // date;version
                 .collect(Collectors.toList()))
-            .collect(Collectors.toList());
+            .toList();
         List<List<String>> expected = new ArrayList<>(timeSeriesLength);
         for (int j = 0; j < timeSeriesLength; j++) {
             List<String> line = new ArrayList<>(threadCount);
@@ -212,19 +263,17 @@ public class TimeSeriesTableTest {
             }
             expected.add(line);
         }
-        assertEquals("Number of lines", expected.size(), actual.size());
+        assertEquals(expected.size(), actual.size(), "Number of lines");
         for (int i = 0; i < actual.size(); i++) {
-            assertEquals("Line " + i, expected.get(i), actual.get(i));
+            assertEquals(expected.get(i), actual.get(i), "Line " + i);
         }
     }
 
     @Test
-    public void testVersionError() {
-        exception.expect(TimeSeriesException.class);
-        exception.expectMessage("toVersion (0) is expected to be greater than fromVersion (1)");
-
-        TimeSeriesIndex index = new TestTimeSeriesIndex(0, 4);
+    void testVersionError() {
+        TimeSeriesIndex index = new RegularTimeSeriesIndex(Instant.ofEpochMilli(0), Instant.ofEpochMilli(3), Duration.ofMillis(1));
         // load time series in the table
-        new TimeSeriesTable(1, 0, index);
+        TimeSeriesException e = assertThrows(TimeSeriesException.class, () -> new TimeSeriesTable(1, 0, index));
+        assertTrue(e.getMessage().contains("toVersion (0) is expected to be greater than fromVersion (1)"));
     }
 }

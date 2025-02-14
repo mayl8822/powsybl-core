@@ -3,25 +3,26 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.entsoe.util;
 
 import com.google.common.collect.Sets;
 import com.powsybl.iidm.network.Country;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class EntsoeGeographicalCodeTest {
+class EntsoeGeographicalCodeTest {
 
     @Test
-    public void testForCountry() {
+    void testForCountry() {
         assertEquals(Collections.singleton(EntsoeGeographicalCode.FR), EntsoeGeographicalCode.forCountry(Country.FR));
 
         Set<EntsoeGeographicalCode> expected = Sets.newHashSet(

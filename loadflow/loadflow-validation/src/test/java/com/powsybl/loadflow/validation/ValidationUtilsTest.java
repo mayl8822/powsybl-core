@@ -3,22 +3,23 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.eu>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.eu>}
  */
-public class ValidationUtilsTest extends AbstractValidationTest {
+class ValidationUtilsTest extends AbstractValidationTest {
 
     @Test
-    public void areNaN() {
+    void areNaN() {
         assertFalse(ValidationUtils.areNaN(looseConfig, 1.02f));
         assertFalse(ValidationUtils.areNaN(looseConfig, 1f, 3.5f));
         assertFalse(ValidationUtils.areNaN(looseConfig, 3.7f, 2f, .004f));
@@ -45,7 +46,7 @@ public class ValidationUtilsTest extends AbstractValidationTest {
     }
 
     @Test
-    public void boundedWithin() {
+    void boundedWithin() {
         assertTrue(ValidationUtils.boundedWithin(0.0, 10.0, 5.0, 0.0));
         assertFalse(ValidationUtils.boundedWithin(0.0, 10.0, -5.0, 0.0));
         assertFalse(ValidationUtils.boundedWithin(0.0, 10.0, 15.0, 0.0));
@@ -61,7 +62,7 @@ public class ValidationUtilsTest extends AbstractValidationTest {
     }
 
     @Test
-    public void isMainComponent() {
+    void isMainComponent() {
         assertTrue(ValidationUtils.isMainComponent(looseConfig, true));
         assertFalse(ValidationUtils.isMainComponent(looseConfig, false));
 

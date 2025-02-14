@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.extensions;
 
@@ -11,7 +12,7 @@ import com.powsybl.commons.PowsyblException;
 import java.util.Objects;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
 class CgmesControlAreaAdderImpl implements CgmesControlAreaAdder {
 
@@ -20,6 +21,7 @@ class CgmesControlAreaAdderImpl implements CgmesControlAreaAdder {
     private String name;
     private String energyIdentificationCodeEic;
     private double netInterchange = Double.NaN;
+    private double pTolerance = Double.NaN;
 
     CgmesControlAreaAdderImpl(CgmesControlAreasImpl mapping) {
         this.mapping = Objects.requireNonNull(mapping);
@@ -50,10 +52,16 @@ class CgmesControlAreaAdderImpl implements CgmesControlAreaAdder {
     }
 
     @Override
+    public CgmesControlAreaAdder setPTolerance(double pTolerance) {
+        this.pTolerance = pTolerance;
+        return this;
+    }
+
+    @Override
     public CgmesControlAreaImpl add() {
         if (id == null) {
             throw new PowsyblException("Undefined ID for CGMES control area");
         }
-        return new CgmesControlAreaImpl(id, name, energyIdentificationCodeEic, netInterchange, mapping);
+        return new CgmesControlAreaImpl(id, name, energyIdentificationCodeEic, netInterchange, pTolerance, mapping);
     }
 }

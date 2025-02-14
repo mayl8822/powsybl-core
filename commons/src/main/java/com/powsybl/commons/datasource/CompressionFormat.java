@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.commons.datasource;
 
@@ -12,12 +13,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
 public enum CompressionFormat {
-    GZIP("gz"),
     BZIP2("bz2"),
-    ZIP("zip");
+    GZIP("gz"),
+    XZ("xz"),
+    ZIP("zip"),
+    ZSTD("zst");
 
     CompressionFormat(String extension) {
         this.extension = Objects.requireNonNull(extension);

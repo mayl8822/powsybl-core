@@ -3,19 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck;
 
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Miora Ralambotiana <miora.ralambotiana at rte-france.com>
+ * @author Miora Ralambotiana {@literal <miora.ralambotiana at rte-france.com>}
  */
-public abstract class AbstractApparentPowerLimitsTest {
+public abstract class AbstractApparentPowerLimitsTest extends AbstractIdenticalLimitsTest {
 
     private static Network createNetwork() {
         Network network = EurostagTutorialExample1Factory.create();
@@ -63,17 +66,60 @@ public abstract class AbstractApparentPowerLimitsTest {
         Line l = network.getLine("NHV1_NHV2_2");
 
         // limits1
-        assertFalse(l.getOperationalLimits1().isEmpty());
-        testLimits1(l.getApparentPowerLimits1());
-        testLimits1(l.getApparentPowerLimits(Branch.Side.ONE));
+        testLimits1(l.getApparentPowerLimits1().orElse(null));
+        testLimits1((ApparentPowerLimits) l.getLimits(LimitType.APPARENT_POWER, TwoSides.ONE).orElse(null));
 
         // limits2
-        assertFalse(l.getOperationalLimits2().isEmpty());
-        ApparentPowerLimits apparentPowerLimits2 = l.getApparentPowerLimits2();
+        ApparentPowerLimits apparentPowerLimits2 = l.getApparentPowerLimits2().orElseThrow(IllegalStateException::new);
         testLimits2(apparentPowerLimits2);
-        testLimits2(l.getApparentPowerLimits(Branch.Side.TWO));
+        testLimits2((ApparentPowerLimits) l.getLimits(LimitType.APPARENT_POWER, TwoSides.TWO).orElse(null));
 
         apparentPowerLimits2.remove();
-        assertNull(l.getApparentPowerLimits2());
+        assertTrue(l.getActivePowerLimits2().isEmpty());
     }
+
+    @Test
+    public void testAdderByCopy() {
+        // First limit
+        Network network = createNetwork();
+        Line line = network.getLine("NHV1_NHV2_2");
+
+        ApparentPowerLimitsAdder adder = line.newApparentPowerLimits1()
+                .setPermanentLimit(1000.)
+                .beginTemporaryLimit()
+                .setName("TL1")
+                .setAcceptableDuration(20 * 60)
+                .setValue(1200.0)
+                .endTemporaryLimit()
+                .beginTemporaryLimit()
+                .setName("TL2")
+                .setAcceptableDuration(10 * 60)
+                .setValue(1400.0)
+                .endTemporaryLimit()
+                .beginTemporaryLimit()
+                .setName("TL3")
+                .setAcceptableDuration(5 * 60)
+                .setValue(1600.0)
+                .endTemporaryLimit();
+        adder.add();
+        ApparentPowerLimits limits1 = line.getApparentPowerLimits1().get();
+
+        // Second limit
+        ApparentPowerLimitsAdder adder2 = line.newApparentPowerLimits2(limits1);
+
+        adder2.add();
+
+        Optional<ApparentPowerLimits> optionalLimits2 = line.getApparentPowerLimits2();
+        assertTrue(optionalLimits2.isPresent());
+        ApparentPowerLimits limits2 = optionalLimits2.get();
+
+        // Tests
+        assertTrue(areLimitsIdentical(limits1, limits2));
+
+        adder = line.newApparentPowerLimits1(limits2);
+        adder.add();
+
+        assertTrue(areLimitsIdentical(limits1, limits2));
+    }
+
 }

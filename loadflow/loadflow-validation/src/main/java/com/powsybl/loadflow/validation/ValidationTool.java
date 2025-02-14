@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.validation;
 
@@ -10,11 +11,10 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.iidm.import_.ImportConfig;
-import com.powsybl.iidm.import_.Importers;
+import com.powsybl.iidm.network.ImportConfig;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManagerConstants;
-import com.powsybl.iidm.tools.ConversionToolUtils;
+import com.powsybl.iidm.network.tools.ConversionToolUtils;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.validation.io.ValidationWriters;
@@ -35,11 +35,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.powsybl.iidm.tools.ConversionToolUtils.*;
+import static com.powsybl.iidm.network.tools.ConversionToolUtils.*;
 
 /**
  *
- * @author Massimo Ferraro <massimo.ferraro@techrain.it>
+ * @author Massimo Ferraro {@literal <massimo.ferraro@techrain.it>}
  */
 @AutoService(Tool.class)
 public class ValidationTool implements Tool {
@@ -194,7 +194,7 @@ public class ValidationTool implements Tool {
     private Network loadNetwork(Path caseFile, CommandLine line, ToolRunningContext context) throws IOException {
         context.getOutputStream().println("Loading case " + caseFile);
         Properties inputParams = readProperties(line, ConversionToolUtils.OptionType.IMPORT, context);
-        Network network = Importers.loadNetwork(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
+        Network network = Network.read(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
         if (network == null) {
             throw new PowsyblException("Case " + caseFile + " not found");
         }

@@ -3,15 +3,17 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.modification.tripping;
 
 import com.google.common.collect.Sets;
 import com.powsybl.commons.PowsyblException;
+import com.powsybl.iidm.modification.AbstractNetworkModification;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import com.powsybl.iidm.network.test.FictitiousSwitchFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -19,15 +21,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Mathieu Bague <mathieu.bague at rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague at rte-france.com>}
  */
-public class BranchTrippingTest extends AbstractTrippingTest {
+class BranchTrippingTest extends AbstractTrippingTest {
 
     @Test
-    public void lineTrippingTest() {
+    void lineTrippingTest() {
         Network network = EurostagTutorialExample1Factory.create();
         Line line = network.getLine("NHV1_NHV2_1");
 
@@ -50,11 +52,11 @@ public class BranchTrippingTest extends AbstractTrippingTest {
 
         LineTripping unknownVlTripping = new LineTripping("NHV1_NHV2_1", "NOT_EXISTS_VL");
         Exception e2 = assertThrows(PowsyblException.class, () -> unknownVlTripping.apply(network));
-        assertEquals("VoltageLevel 'NOT_EXISTS_VL' not connected to line 'NHV1_NHV2_1'", e2.getMessage());
+        assertEquals("VoltageLevel 'NOT_EXISTS_VL' not connected to LINE 'NHV1_NHV2_1'", e2.getMessage());
     }
 
     @Test
-    public void transformerTrippingTest() {
+    void transformerTrippingTest() {
         Network network = EurostagTutorialExample1Factory.create();
         TwoWindingsTransformer transformer = network.getTwoWindingsTransformer("NHV2_NLOAD");
 
@@ -77,11 +79,11 @@ public class BranchTrippingTest extends AbstractTrippingTest {
 
         TwoWindingsTransformerTripping unknownVlTripping = new TwoWindingsTransformerTripping("NHV2_NLOAD", "NOT_EXISTS_VL");
         Exception e2 = assertThrows(PowsyblException.class, () -> unknownVlTripping.apply(network));
-        assertEquals("VoltageLevel 'NOT_EXISTS_VL' not connected to the two windings transformer 'NHV2_NLOAD'", e2.getMessage());
+        assertEquals("VoltageLevel 'NOT_EXISTS_VL' not connected to TWO_WINDINGS_TRANSFORMER 'NHV2_NLOAD'", e2.getMessage());
     }
 
     @Test
-    public void legacyTest() {
+    void legacyTest() {
         Network network = EurostagTutorialExample1Factory.create();
         TwoWindingsTransformer transformer = network.getTwoWindingsTransformer("NHV2_NLOAD");
 
@@ -99,24 +101,24 @@ public class BranchTrippingTest extends AbstractTrippingTest {
         assertFalse(transformer.getTerminal2().isConnected());
     }
 
-    @Test(expected = PowsyblException.class)
-    public void unknownBranchTrippingTest() {
+    @Test
+    void unknownBranchTrippingTest() {
         Network network = EurostagTutorialExample1Factory.create();
 
         BranchTripping tripping = new BranchTripping("transformer");
-        tripping.apply(network);
-    }
-
-    @Test(expected = PowsyblException.class)
-    public void unknownSubstationTrippingTest() {
-        Network network = EurostagTutorialExample1Factory.create();
-
-        BranchTripping tripping = new BranchTripping("NHV2_NLOAD", "UNKNOWN");
-        tripping.apply(network);
+        assertThrows(PowsyblException.class, () -> tripping.apply(network));
     }
 
     @Test
-    public void fictitiousSwitchTest() {
+    void unknownSubstationTrippingTest() {
+        Network network = EurostagTutorialExample1Factory.create();
+
+        BranchTripping tripping = new BranchTripping("NHV2_NLOAD", "UNKNOWN");
+        assertThrows(PowsyblException.class, () -> tripping.apply(network));
+    }
+
+    @Test
+    void fictitiousSwitchTest() {
         Set<String> switchIds = Sets.newHashSet("BD", "BL");
 
         Network network = FictitiousSwitchFactory.create();
@@ -139,5 +141,17 @@ public class BranchTrippingTest extends AbstractTrippingTest {
 
         List<Boolean> switchStates = getSwitchStates(network, switchIds);
         assertEquals(expectedSwitchStates, switchStates);
+    }
+
+    @Test
+    void testGetName() {
+        AbstractNetworkModification networkModification = new BranchTripping("CJ", "C");
+        assertEquals("BranchTripping", networkModification.getName());
+
+        networkModification = new TwoWindingsTransformerTripping("NHV2_NLOAD", "VLHV2");
+        assertEquals("TwoWindingsTransformerTripping", networkModification.getName());
+
+        networkModification = new LineTripping("NHV1_NHV2_1", "VLHV2");
+        assertEquals("LineTripping", networkModification.getName());
     }
 }

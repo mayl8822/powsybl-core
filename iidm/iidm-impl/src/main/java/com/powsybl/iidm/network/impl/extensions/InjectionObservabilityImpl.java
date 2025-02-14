@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl.extensions;
 
@@ -12,7 +13,7 @@ import com.powsybl.iidm.network.extensions.InjectionObservability;
 import com.powsybl.iidm.network.extensions.ObservabilityQuality;
 
 /**
- * @author Thomas Adam <tadam at silicom.fr>
+ * @author Thomas Adam {@literal <tadam at silicom.fr>}
  */
 public class InjectionObservabilityImpl<T extends Injection<T>> extends AbstractExtension<T>
         implements InjectionObservability<T> {
@@ -31,9 +32,9 @@ public class InjectionObservabilityImpl<T extends Injection<T>> extends Abstract
     }
 
     public InjectionObservabilityImpl(T component, boolean observable,
-                                      double standardDeviationP, boolean redundantP,
-                                      double standardDeviationQ, boolean redundantQ,
-                                      double standardDeviationV, boolean redundantV) {
+                                      double standardDeviationP, Boolean redundantP,
+                                      double standardDeviationQ, Boolean redundantQ,
+                                      double standardDeviationV, Boolean redundantV) {
         this(component, observable);
         this.qualityP = new ObservabilityQualityImpl<>(standardDeviationP, redundantP);
         this.qualityQ = new ObservabilityQualityImpl<>(standardDeviationQ, redundantQ);
@@ -56,7 +57,7 @@ public class InjectionObservabilityImpl<T extends Injection<T>> extends Abstract
     }
 
     @Override
-    public InjectionObservability<T> setQualityP(double standardDeviation, boolean redundant) {
+    public InjectionObservability<T> setQualityP(double standardDeviation, Boolean redundant) {
         if (qualityP == null) {
             qualityP = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {
@@ -82,7 +83,7 @@ public class InjectionObservabilityImpl<T extends Injection<T>> extends Abstract
     }
 
     @Override
-    public InjectionObservability<T> setQualityQ(double standardDeviation, boolean redundant) {
+    public InjectionObservability<T> setQualityQ(double standardDeviation, Boolean redundant) {
         if (qualityQ == null) {
             qualityQ = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {
@@ -108,7 +109,7 @@ public class InjectionObservabilityImpl<T extends Injection<T>> extends Abstract
     }
 
     @Override
-    public InjectionObservability<T> setQualityV(double standardDeviation, boolean redundant) {
+    public InjectionObservability<T> setQualityV(double standardDeviation, Boolean redundant) {
         if (qualityV == null) {
             qualityV = new ObservabilityQualityImpl<>(standardDeviation, redundant);
         } else {

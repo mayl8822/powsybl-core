@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package com.powsybl.cgmes.alternatives.test;
@@ -13,49 +14,52 @@ import com.powsybl.cgmes.conformity.CgmesConformity1Catalog;
 import com.powsybl.cgmes.model.CgmesModel;
 import com.powsybl.cgmes.model.CgmesModelFactory;
 import com.powsybl.cgmes.model.CgmesSubset;
-import com.powsybl.cgmes.model.test.TestGridModelResources;
+import com.powsybl.cgmes.model.GridModelReferenceResources;
 import com.powsybl.commons.datasource.CompressionFormat;
 import com.powsybl.commons.datasource.DataSource;
 import com.powsybl.commons.datasource.DataSourceUtil;
 import com.powsybl.triplestore.api.TripleStoreFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author Mathieu Bague <mathieu.bague@rte-france.com>
+ * @author Mathieu Bague {@literal <mathieu.bague@rte-france.com>}
  */
-public class TripleStoreWriteTest {
+class TripleStoreWriteTest {
 
     private FileSystem fileSystem;
 
-    @Before
-    public void setup() {
+    @BeforeEach
+    void setup() {
         fileSystem = Jimfs.newFileSystem(Configuration.unix());
     }
 
-    @After
-    public void tearDown() throws IOException {
+    @AfterEach
+    void tearDown() throws IOException {
         fileSystem.close();
     }
 
     @Test
-    public void testWriteSubset() throws IOException {
-        TestGridModelResources resources = CgmesConformity1Catalog.microGridBaseCaseBE();
+    void testWriteSubset() throws IOException {
+        GridModelReferenceResources resources = CgmesConformity1Catalog.microGridBaseCaseBE();
 
         for (String impl : TripleStoreFactory.allImplementations()) {
             CgmesModel model = CgmesModelFactory.create(resources.dataSource(), impl);
             assertEquals(9, model.tripleStore().contextNames().size());
 
             for (CgmesSubset subset : CgmesSubset.values()) {
+                if (subset == CgmesSubset.UNKNOWN) {
+                    continue;
+                }
                 DataSource ds1 = DataSourceUtil.createDataSource(fileSystem.getPath("/"), "cgmes", CompressionFormat.ZIP, null);
                 model.write(ds1, subset);
 

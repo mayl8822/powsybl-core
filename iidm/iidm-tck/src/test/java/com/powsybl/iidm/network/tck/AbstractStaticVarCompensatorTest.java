@@ -3,27 +3,28 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.tck;
 
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.SvcTestCaseFactory;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
 public abstract class AbstractStaticVarCompensatorTest {
 
     private Network network;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         network = SvcTestCaseFactory.create();
     }
@@ -115,6 +116,10 @@ public abstract class AbstractStaticVarCompensatorTest {
         svc3.remove();
         StaticVarCompensator svc4 = createSvc("SVC4", loadTerminal);
         assertEquals(loadTerminal, svc4.getRegulatingTerminal());
+
+        network.getLoad("L2").remove();
+        assertEquals(svc4.getTerminal(), svc4.getRegulatingTerminal());
+        assertEquals(StaticVarCompensator.RegulationMode.VOLTAGE, svc4.getRegulationMode());
     }
 
     @Test

@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.iidm.network.impl;
 
@@ -13,7 +14,7 @@ import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import gnu.trove.list.array.TDoubleArrayList;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -21,13 +22,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
- * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
+ * @author Geoffroy Jamgotchian {@literal <geoffroy.jamgotchian at rte-france.com>}
  */
-public class VariantManagerImplTest {
+class VariantManagerImplTest {
 
     private static final class IdentifiableMock extends AbstractExtendable<IdentifiableMock> implements Identifiable<IdentifiableMock>, MultiVariantObject {
 
@@ -199,11 +200,11 @@ public class VariantManagerImplTest {
         }
     }
 
-    public VariantManagerImplTest() {
+    VariantManagerImplTest() {
     }
 
     @Test
-    public void test() {
+    void test() {
         NetworkImpl network = (NetworkImpl) Network.create("test", "no-format");
         NetworkIndex index = network.getIndex();
         IdentifiableMock identifiable1 = new IdentifiableMock("1");
@@ -277,7 +278,7 @@ public class VariantManagerImplTest {
     }
 
     @Test
-    public void testMultipleNetworks() {
+    void testMultipleNetworks() {
         Network network1 = Network.create("network1", "no-format");
         Network network2 = Network.create("network2", "no-format");
 
@@ -299,7 +300,7 @@ public class VariantManagerImplTest {
     }
 
     @Test
-    public void testMultiStateExtensions() {
+    void testMultiStateExtensions() {
         String variante1 = "v1";
         String variante2 = "v2";
 
@@ -336,7 +337,7 @@ public class VariantManagerImplTest {
     }
 
     @Test
-    public void overwriteVariant() {
+    void overwriteVariant() {
         String variante1 = "v1";
 
         Network network = EurostagTutorialExample1Factory.create();
@@ -358,7 +359,7 @@ public class VariantManagerImplTest {
     }
 
     @Test
-    public void testVariantIndexKept() throws Exception {
+    void testVariantIndexKept() throws Exception {
         NetworkImpl network = (NetworkImpl) Network.create("testVariantIndexKept", "no-format");
         VariantManager variantManager = new VariantManagerImpl(network);
         variantManager.cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, "ClonedVariant1");
@@ -380,7 +381,7 @@ public class VariantManagerImplTest {
     }
 
     @Test
-    public void testMultipleSetAllowMultiThreadTrue() throws Exception {
+    void testMultipleSetAllowMultiThreadTrue() throws Exception {
         NetworkImpl network = (NetworkImpl) Network.create("testMultipleSetAllowMultiThreadTrue", "no-format");
         VariantManager variantManager = new VariantManagerImpl(network);
         variantManager.allowVariantMultiThreadAccess(true);
@@ -400,16 +401,16 @@ public class VariantManagerImplTest {
         }).start();
         cdl1.await();
         if (exceptionThrown[0] != null) {
-            throw new AssertionError(exceptionThrown[0]);
+            fail(exceptionThrown[0]);
         }
     }
 
     @Test
-    public void testVariantIndexSwitch() throws Exception {
+    void testVariantIndexSwitch() throws Exception {
         NetworkImpl network = (NetworkImpl) Network.create("testVariantIndexSwitch", "no-format");
         VariantManager variantManager = new VariantManagerImpl(network);
-        assertEquals(VariantManagerConstants.INITIAL_VARIANT_ID,  variantManager.getWorkingVariantId());
-        variantManager.cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID,  "ClonedVariant1");
+        assertEquals(VariantManagerConstants.INITIAL_VARIANT_ID, variantManager.getWorkingVariantId());
+        variantManager.cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, "ClonedVariant1");
         variantManager.setWorkingVariant("ClonedVariant1");
         assertEquals("ClonedVariant1", variantManager.getWorkingVariantId());
         variantManager.allowVariantMultiThreadAccess(false);
@@ -427,7 +428,7 @@ public class VariantManagerImplTest {
         assertTrue(variantManager.isVariantMultiThreadAccessAllowed());
         variantManager.allowVariantMultiThreadAccess(false);
         assertEquals(VariantManagerConstants.INITIAL_VARIANT_ID, variantManager.getWorkingVariantId());
-        variantManager.cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID,  "ClonedVariant2");
+        variantManager.cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, "ClonedVariant2");
         variantManager.allowVariantMultiThreadAccess(true);
         assertTrue(variantManager.isVariantMultiThreadAccessAllowed());
         variantManager.removeVariant("ClonedVariant2");

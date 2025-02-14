@@ -1,46 +1,48 @@
 package com.powsybl.security;
 
 import com.powsybl.contingency.Contingency;
+import com.powsybl.contingency.ContingencyContext;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VoltageLevel;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
+import com.powsybl.loadflow.LoadFlowResult;
+import com.powsybl.security.condition.TrueCondition;
 import com.powsybl.security.interceptors.*;
-import com.powsybl.security.results.BranchResult;
-import com.powsybl.security.results.BusResult;
-import com.powsybl.security.results.PostContingencyResult;
-import com.powsybl.security.results.ThreeWindingsTransformerResult;
-import org.junit.Test;
+import com.powsybl.security.results.*;
+import com.powsybl.security.strategy.ConditionalActions;
+import com.powsybl.security.strategy.OperatorStrategy;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
+ * @author Sylvain Leclerc {@literal <sylvain.leclerc at rte-france.com>}
  */
-public class SecurityAnalysisResultBuilderTest {
+class SecurityAnalysisResultBuilderTest {
 
     private final Network network = EurostagTutorialExample1Factory.createWithCurrentLimits();
 
     @Test
-    public void failedResult() {
+    void failedResult() {
 
         SecurityAnalysisResultBuilder builder = new SecurityAnalysisResultBuilder(new LimitViolationFilter(),
                 new RunningContext(network, network.getVariantManager().getWorkingVariantId()));
 
-        SecurityAnalysisResult res = builder.preContingency().setComputationOk(false).endPreContingency().build();
+        SecurityAnalysisResult res = builder.preContingency().setStatus(LoadFlowResult.ComponentResult.Status.FAILED).endPreContingency().build();
 
-        assertFalse(res.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.FAILED, res.getPreContingencyResult().getStatus());
         assertTrue(res.getPreContingencyLimitViolationsResult().getLimitViolations().isEmpty());
         assertTrue(res.getPostContingencyResults().isEmpty());
     }
 
     @Test
-    public void completeResultWithCustomContext() {
+    void completeResultWithCustomContext() {
         SecurityAnalysisInterceptor securityAnalysisInterceptorMock = new MockInterceptor();
         CustomContext preResultContext = new CustomContext(network, "pre");
         CustomContext baseContext = new CustomContext(network, "all");
@@ -54,6 +56,7 @@ public class SecurityAnalysisResultBuilderTest {
 
         SecurityAnalysisResultBuilder.PreContingencyResultBuilder preContingencyResultBuilder = builder.preContingency(preResultContext);
         preContingencyResultBuilder
+                .setStatus(LoadFlowResult.ComponentResult.Status.CONVERGED)
                 .addViolations(Security.checkLimits(network), preVioContext)
                 .endPreContingency();
         assertEquals(Security.checkLimits(network).size(), preVioContext.getCalledCount());
@@ -64,8 +67,9 @@ public class SecurityAnalysisResultBuilderTest {
         CustomContext postResultContext = new CustomContext(network, "post");
         CustomContext postViolationContext = new CustomContext(network, "post-vio");
         builder.contingency(new Contingency("contingency1"), postResultContext)
-                .setComputationOk(true)
+                .setStatus(PostContingencyComputationStatus.CONVERGED)
                 .addViolations(Security.checkLimits(network), postViolationContext)
+                .setConnectivityResult(new ConnectivityResult(1, 1, 0.0, 0.0, Collections.emptySet()))
                 .endContingency();
         assertEquals(Security.checkLimits(network).size(), postViolationContext.getCalledCount());
         assertEquals(1, postResultContext.getCalledCount());
@@ -76,7 +80,7 @@ public class SecurityAnalysisResultBuilderTest {
     }
 
     @Test
-    public void completeResult() {
+    void completeResult() {
         SecurityAnalysisResultBuilder builder = new SecurityAnalysisResultBuilder(new LimitViolationFilter(),
                 new RunningContext(network, network.getVariantManager().getWorkingVariantId()));
 
@@ -84,37 +88,45 @@ public class SecurityAnalysisResultBuilderTest {
         vl.getBusView().getBusStream().forEach(b -> b.setV(410));
 
         builder.preContingency()
-                .setComputationOk(true)
                 .addViolations(Security.checkLimits(network))
                 .endPreContingency();
 
         vl.getBusView().getBusStream().forEach(b -> b.setV(380));
 
-        builder.contingency(new Contingency("contingency1")).setComputationOk(true)
+        builder.contingency(new Contingency("contingency1"))
+                .setStatus(PostContingencyComputationStatus.CONVERGED)
                 .addBranchResult(new BranchResult("branchId", 0, 0, 0, 0, 0, 0, 0))
                 .addBusResult(new BusResult("voltageLevelId", "busId", 400, 3.14))
                 .addThreeWindingsTransformerResult(new ThreeWindingsTransformerResult("threeWindingsTransformerId",
                 0, 0, 0, 0, 0, 0, 0, 0, 0))
                 .addViolations(Security.checkLimits(network))
+                .setConnectivityResult(new ConnectivityResult(1, 2, 10.0, 20.0, Set.of("branchId")))
                 .endContingency();
 
         vl.getBusView().getBusStream().forEach(b -> b.setV(520));
-        builder.contingency(new Contingency("contingency2")).setComputationOk(true)
+        builder.contingency(new Contingency("contingency2"))
+                .setStatus(PostContingencyComputationStatus.CONVERGED)
                 .addViolations(Security.checkLimits(network))
+                .setConnectivityResult(new ConnectivityResult(2, 4, 10.0, 15.0, Set.of("branchId", "branchId2")))
                 .endContingency();
 
         SecurityAnalysisResult res = builder.build();
 
-        assertTrue(res.getPreContingencyLimitViolationsResult().isComputationOk());
+        assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, res.getPreContingencyResult().getStatus());
         assertEquals(4, res.getPreContingencyLimitViolationsResult().getLimitViolations().size());
         assertEquals(2, res.getPostContingencyResults().size());
 
         PostContingencyResult res1 = res.getPostContingencyResults().get(0);
         assertEquals("contingency1", res1.getContingency().getId());
-        assertEquals(new BranchResult("branchId", 0, 0, 0, 0, 0, 0, 0), res1.getBranchResult("branchId"));
-        assertEquals(new BusResult("voltageLevelId", "busId", 400, 3.14), res1.getBusResult("busId"));
+        assertEquals(new BranchResult("branchId", 0, 0, 0, 0, 0, 0, 0), res1.getNetworkResult().getBranchResult("branchId"));
+        assertEquals(new BusResult("voltageLevelId", "busId", 400, 3.14), res1.getNetworkResult().getBusResult("busId"));
         assertEquals(new ThreeWindingsTransformerResult("threeWindingsTransformerId",
-            0, 0, 0, 0, 0, 0, 0, 0, 0), res1.getThreeWindingsTransformerResult("threeWindingsTransformerId"));
+            0, 0, 0, 0, 0, 0, 0, 0, 0), res1.getNetworkResult().getThreeWindingsTransformerResult("threeWindingsTransformerId"));
+        assertEquals(1, res1.getConnectivityResult().getCreatedSynchronousComponentCount());
+        assertEquals(2, res1.getConnectivityResult().getCreatedConnectedComponentCount());
+        assertEquals(10.0, res1.getConnectivityResult().getDisconnectedLoadActivePower(), 1e-3);
+        assertEquals(20.0, res1.getConnectivityResult().getDisconnectedGenerationActivePower(), 1e-3);
+        assertEquals(Set.of("branchId"), res1.getConnectivityResult().getDisconnectedElements());
         assertEquals(2, res.getPostContingencyResults().size());
 
         List<LimitViolation> violations1 = res1.getLimitViolationsResult().getLimitViolations();
@@ -124,6 +136,11 @@ public class SecurityAnalysisResultBuilderTest {
 
         PostContingencyResult res2 = res.getPostContingencyResults().get(1);
         assertEquals("contingency2", res2.getContingency().getId());
+        assertEquals(2, res2.getConnectivityResult().getCreatedSynchronousComponentCount());
+        assertEquals(4, res2.getConnectivityResult().getCreatedConnectedComponentCount());
+        assertEquals(10.0, res2.getConnectivityResult().getDisconnectedLoadActivePower(), 1e-3);
+        assertEquals(15.0, res2.getConnectivityResult().getDisconnectedGenerationActivePower(), 1e-3);
+        assertEquals(Set.of("branchId", "branchId2"), res2.getConnectivityResult().getDisconnectedElements());
         assertEquals(2, res.getPostContingencyResults().size());
 
         List<LimitViolation> violations2 = res2.getLimitViolationsResult().getLimitViolations();
@@ -136,7 +153,7 @@ public class SecurityAnalysisResultBuilderTest {
 
         private int calledCount = 0;
 
-        public MockContext(Network network) {
+        MockContext(Network network) {
             super(network);
         }
 
@@ -153,20 +170,20 @@ public class SecurityAnalysisResultBuilderTest {
 
         private final String name;
 
-        public CustomContext(Network network, String name) {
+        CustomContext(Network network, String name) {
             super(network);
             this.name = Objects.requireNonNull(name);
         }
 
-        public String getName() {
+        String getName() {
             return name;
         }
     }
 
-    static class MockInterceptor extends DefaultSecurityAnalysisInterceptor {
+    public static class MockInterceptor extends DefaultSecurityAnalysisInterceptor {
 
         @Override
-        public void onPreContingencyResult(LimitViolationsResult preContingencyResult, SecurityAnalysisResultContext context) {
+        public void onPreContingencyResult(PreContingencyResult preContingencyResult, SecurityAnalysisResultContext context) {
             if (context instanceof CustomContext) {
                 CustomContext customContext = (CustomContext) context;
                 customContext.foo();
@@ -211,4 +228,89 @@ public class SecurityAnalysisResultBuilderTest {
         }
     }
 
+    @Test
+    void operatorStrategyResultCreation() {
+        //Build result with 1 operator strategy
+        OperatorStrategy operatorStrategy = new OperatorStrategy("strat1", ContingencyContext.specificContingency("cont1"), new TrueCondition(),
+                List.of("action1", "action2"));
+
+        SecurityAnalysisResultBuilder builder = new SecurityAnalysisResultBuilder(new LimitViolationFilter(),
+                new RunningContext(network, network.getVariantManager().getWorkingVariantId()));
+
+        LimitViolation violation = LimitViolations.highVoltage().subject("VLHV1").value(425).limit(420).build();
+        BusResult busResult = new BusResult("VLHV2", "VLHV2_0", 426.2, 0.12);
+        builder.operatorStrategy(operatorStrategy)
+                .newConditionalActionsResult("default")
+                .addViolation(violation)
+                .addBusResult(busResult)
+                .setStatus(PostContingencyComputationStatus.CONVERGED)
+                .endConditionalActions()
+                .endOperatorStrategy();
+
+        SecurityAnalysisResult result = builder.build();
+
+        //Check content
+        assertEquals(1, result.getOperatorStrategyResults().size());
+
+        OperatorStrategyResult strategyResult = result.getOperatorStrategyResults().get(0);
+        assertSame(operatorStrategy, strategyResult.getOperatorStrategy());
+
+        LimitViolationsResult violationsResult = strategyResult.getLimitViolationsResult();
+        assertSame(PostContingencyComputationStatus.CONVERGED, strategyResult.getStatus());
+        assertEquals(1, violationsResult.getLimitViolations().size());
+        assertSame(violation, violationsResult.getLimitViolations().get(0));
+        NetworkResult networkResult = strategyResult.getNetworkResult();
+        assertEquals(1, networkResult.getBusResults().size());
+        assertEquals(busResult, networkResult.getBusResults().get(0));
+        assertTrue(networkResult.getBranchResults().isEmpty());
+        assertTrue(networkResult.getThreeWindingsTransformerResults().isEmpty());
+    }
+
+    @Test
+    void operatorStrategyResultMultipleConditionalResults() {
+        OperatorStrategy operatorStrategy = new OperatorStrategy("strat1", ContingencyContext.specificContingency("cont1"),
+                List.of(new ConditionalActions("CRA1", new TrueCondition(), List.of("action1")), new ConditionalActions("CRA2", new TrueCondition(), List.of("action2"))));
+
+        SecurityAnalysisResultBuilder builder = new SecurityAnalysisResultBuilder(new LimitViolationFilter(),
+                new RunningContext(network, network.getVariantManager().getWorkingVariantId()));
+
+        LimitViolation violation = LimitViolations.highVoltage().subject("VLHV1").value(425).limit(420).build();
+        BusResult busResult = new BusResult("VLHV2", "VLHV2_0", 426.2, 0.12);
+
+        LimitViolation violation2 = LimitViolations.highVoltage().subject("VLHV1").value(432).limit(444).build();
+        BusResult busResult2 = new BusResult("VLHV2", "VLHV2_0", 34.2, 0.36);
+
+        builder.operatorStrategy(operatorStrategy)
+                .newConditionalActionsResult("CRA1")
+                .addViolation(violation)
+                .addBusResult(busResult)
+                .setStatus(PostContingencyComputationStatus.CONVERGED)
+                .endConditionalActions()
+                .newConditionalActionsResult("CRA2")
+                .addViolation(violation2)
+                .addBusResult(busResult2)
+                .setStatus(PostContingencyComputationStatus.FAILED)
+                .endConditionalActions()
+                .endOperatorStrategy();
+
+        SecurityAnalysisResult result = builder.build();
+
+        assertEquals(1, result.getOperatorStrategyResults().size());
+        assertEquals(2, result.getOperatorStrategyResults().get(0).getConditionalActionsResults().size());
+
+        OperatorStrategyResult strategyResult = result.getOperatorStrategyResults().get(0);
+        OperatorStrategyResult.ConditionalActionsResult firstActionsRes = strategyResult.getConditionalActionsResults().get(0);
+        OperatorStrategyResult.ConditionalActionsResult lastActionsRes = strategyResult.getConditionalActionsResults().get(1);
+
+        // First conditional actions converged
+        assertSame(PostContingencyComputationStatus.CONVERGED, firstActionsRes.getStatus());
+        assertEquals("CRA1", firstActionsRes.getConditionalActionsId());
+
+        // Last conditional actions fail
+        assertSame(PostContingencyComputationStatus.FAILED, lastActionsRes.getStatus());
+        assertEquals("CRA2", lastActionsRes.getConditionalActionsId());
+
+        // Result available at strategy level are the last
+        assertSame(PostContingencyComputationStatus.FAILED, strategyResult.getStatus());
+    }
 }

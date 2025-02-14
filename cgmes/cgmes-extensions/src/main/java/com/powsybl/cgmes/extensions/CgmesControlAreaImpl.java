@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.cgmes.extensions;
 
@@ -12,7 +13,7 @@ import com.powsybl.iidm.network.Terminal;
 import java.util.*;
 
 /**
- * @author Marcos de Miguel <demiguelm at aia.es>
+ * @author Marcos de Miguel {@literal <demiguelm at aia.es>}
  */
 class CgmesControlAreaImpl implements CgmesControlArea {
     private final String id;
@@ -20,13 +21,15 @@ class CgmesControlAreaImpl implements CgmesControlArea {
     private final String energyIdentificationCodeEic;
     private final Set<Terminal> terminals = new LinkedHashSet<>();
     private final Set<Boundary> boundaries = new LinkedHashSet<>();
-    private final double netInterchange;
+    private double netInterchange;
+    private double pTolerance;
 
-    CgmesControlAreaImpl(String id, String name, String energyIdentificationCodeEic, double netInterchange, CgmesControlAreasImpl mapping) {
+    CgmesControlAreaImpl(String id, String name, String energyIdentificationCodeEic, double netInterchange, double pTolerance, CgmesControlAreasImpl mapping) {
         this.id = Objects.requireNonNull(id);
         this.name = name;
         this.energyIdentificationCodeEic = energyIdentificationCodeEic;
         this.netInterchange = netInterchange;
+        this.pTolerance = pTolerance;
         attach(mapping);
     }
 
@@ -72,5 +75,20 @@ class CgmesControlAreaImpl implements CgmesControlArea {
     @Override
     public void add(Boundary boundary) {
         boundaries.add(boundary);
+    }
+
+    @Override
+    public void setNetInterchange(double netInterchange) {
+        this.netInterchange = netInterchange;
+    }
+
+    @Override
+    public double getPTolerance() {
+        return pTolerance;
+    }
+
+    @Override
+    public void setPTolerance(double pTolerance) {
+        this.pTolerance = pTolerance;
     }
 }

@@ -3,21 +3,22 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.computation;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * @author Jon Harper <jon.harper at rte-france.com>
+ * @author Jon Harper {@literal <jon.harper at rte-france.com>}
  */
-public class ThreadInterruptedCompletableFutureTest {
+class ThreadInterruptedCompletableFutureTest {
 
     @Test
-    public void test() throws Exception {
+    void test() throws Exception {
         ThreadInterruptedCompletableFuture<?> foo = new ThreadInterruptedCompletableFuture<>();
         boolean[] result = new boolean[2];
         Thread t = new Thread() {

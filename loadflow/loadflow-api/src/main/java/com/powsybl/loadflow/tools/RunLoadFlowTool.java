@@ -3,17 +3,17 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.loadflow.tools;
 
 import com.google.auto.service.AutoService;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.io.table.*;
-import com.powsybl.iidm.export.Exporters;
-import com.powsybl.iidm.import_.ImportConfig;
-import com.powsybl.iidm.import_.Importers;
+import com.powsybl.iidm.network.Exporter;
+import com.powsybl.iidm.network.ImportConfig;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.tools.ConversionToolUtils;
+import com.powsybl.iidm.network.tools.ConversionToolUtils;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -36,11 +36,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
-import static com.powsybl.iidm.tools.ConversionToolUtils.*;
+import static com.powsybl.iidm.network.tools.ConversionToolUtils.*;
 
 /**
- * @author Christian Biasuzzi <christian.biasuzzi@techrain.it>
+ * @author Christian Biasuzzi {@literal <christian.biasuzzi@techrain.it>}
  */
 @AutoService(Tool.class)
 public class RunLoadFlowTool implements Tool {
@@ -100,7 +101,7 @@ public class RunLoadFlowTool implements Tool {
                         .argName("FORMAT")
                         .build());
                 options.addOption(Option.builder().longOpt(OUTPUT_CASE_FORMAT)
-                        .desc("modified network output format " + Exporters.getFormats())
+                        .desc("modified network output format " + Exporter.getFormats())
                         .hasArg()
                         .argName("CASEFORMAT")
                         .build());
@@ -148,7 +149,7 @@ public class RunLoadFlowTool implements Tool {
 
         context.getOutputStream().println("Loading network '" + caseFile + "'");
         Properties inputParams = readProperties(line, ConversionToolUtils.OptionType.IMPORT, context);
-        Network network = Importers.loadNetwork(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
+        Network network = Network.read(caseFile, context.getShortTimeExecutionComputationManager(), ImportConfig.load(), inputParams);
         if (network == null) {
             throw new PowsyblException("Case '" + caseFile + "' not found");
         }
@@ -171,7 +172,7 @@ public class RunLoadFlowTool implements Tool {
         if (outputCaseFile != null) {
             String outputCaseFormat = line.getOptionValue(OUTPUT_CASE_FORMAT);
             Properties outputParams = readProperties(line, ConversionToolUtils.OptionType.EXPORT, context);
-            Exporters.export(outputCaseFormat, network, outputParams, outputCaseFile);
+            network.write(outputCaseFormat, outputParams, outputCaseFile);
         }
     }
 
@@ -190,29 +191,42 @@ public class RunLoadFlowTool implements Tool {
                 "Loadflow results",
                 formatterConfig,
                 new Column("Ok"),
+                new Column("Status"),
                 new Column("Metrics"))) {
             formatter.writeCell(result.isOk());
+            formatter.writeCell(result.getStatus().name());
             formatter.writeCell(result.getMetrics().toString());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        final String csvSeparator = String.valueOf(formatterConfig.getCsvSeparator());
         if (!result.getComponentResults().isEmpty()) {
             try (TableFormatter formatter = formatterFactory.create(writer,
                     "Components results",
                     formatterConfig,
-                    new Column("Connected component number"),
-                    new Column("Synchronous component number"),
+                    new Column("Connected component"),
+                    new Column("Synchronous component"),
                     new Column("Status"),
+                    new Column("Status text"),
+                    new Column("Metrics"),
                     new Column("Iteration count"),
                     new Column("Slack bus ID"),
-                    new Column("Slack bus mismatch (MW)"))) {
+                    new Column("Slack bus mismatch (MW)"),
+                    new Column("Distributed Active Power (MW)"))) {
                 for (LoadFlowResult.ComponentResult componentResult : result.getComponentResults()) {
                     formatter.writeCell(componentResult.getConnectedComponentNum());
                     formatter.writeCell(componentResult.getSynchronousComponentNum());
                     formatter.writeCell(componentResult.getStatus().name());
+                    formatter.writeCell(componentResult.getStatusText());
+                    formatter.writeCell(componentResult.getMetrics().toString());
                     formatter.writeCell(componentResult.getIterationCount());
-                    formatter.writeCell(componentResult.getSlackBusId());
-                    formatter.writeCell(componentResult.getSlackBusActivePowerMismatch());
+                    formatter.writeCell(componentResult.getSlackBusResults().stream()
+                            .map(LoadFlowResult.SlackBusResult::getId)
+                            .collect(Collectors.joining(csvSeparator)));
+                    formatter.writeCell(componentResult.getSlackBusResults().stream()
+                            .map(sbr -> String.format(formatterConfig.getLocale(), "%.2f", sbr.getActivePowerMismatch()))
+                            .collect(Collectors.joining(csvSeparator)));
+                    formatter.writeCell(componentResult.getDistributedActivePower());
                 }
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
